@@ -69,13 +69,13 @@ namespace StyleWatcherWin
         private readonly PlotView _pvSize = new() { Dock = DockStyle.Fill, BackColor = Color.White };
 
         // 明细（总览右下）
-        private readonly DataGridView _grid = new() { Dock = DockStyle.Fill, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells, BackgroundColor = Color.White };
+        private readonly DataGridView _grid = new() { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells };
 
         // 子 Tab（按仓库）
         private readonly TabControl _subTabs = new() { Dock = DockStyle.Fill };
 
         // 悬浮提示
-        private readonly ToolTip _tip = new() { InitialDelay = 0 };
+        private readonly ToolTip _tip = new() { InitialDelay = 0, ReshowDelay = 0, AutoPopDelay = 8000, ShowAlways = true };
 
         // 当前点击筛选（总览热力图）
         private (string? color, string? size)? _activeCell = null;
@@ -85,14 +85,6 @@ namespace StyleWatcherWin
 
         public InventoryTabPage(AppConfig cfg)
         {
-        global::UiKit.ApplyGridDefaults(_grid);
-        global::UiKit.ApplyTabsDefaults(_subTabs);
-        global::UiKit.ApplyToolTipDefaults(_tip);
-        global::UiKit.ApplyLabelDefaults(_lblAvail);
-        global::UiKit.ApplyLabelDefaults(_lblOnHand);
-        global::UiKit.ApplyPlotDefaults(_pvColor);
-        global::UiKit.ApplyPlotDefaults(_pvHeat);
-        global::UiKit.ApplyPlotDefaults(_pvSize);
             _cfg = cfg;
             Text = "库存";
 

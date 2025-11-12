@@ -712,4 +712,422 @@ if (other > 0)
 
         
 }
+
+
+// === VIP INTEGRATION BEGIN ===
+// ===== 提取自 ResultForm.cs：唯品库存 页面相关代码（不多不少，按调用逻辑排序） =====
+// 说明：本文件聚合了字段声明、UI 构建与事件绑定、数据加载/解析/绑定、虚拟表格回显、排序与搜索过滤等。
+// 原始位置见各段注释（以“源：ResultForm.cs [Lxx-Lyy]”标注）。
+
+// ---------- 一、字段声明 ----------
+// 源：ResultForm.cs [L40-L70]
+// 作用：唯品库存页的控件、状态与缓存。
+/* begin: fields */
+// Vip inventory page (virtualized)
+private TabPage? _vipInvTab;
+private readonly DataGridView _vipGrid = new()
+{
+    Dock = DockStyle.Fill,
+    ReadOnly = true,
+    AllowUserToAddRows = false,
+    AllowUserToDeleteRows = false,
+    RowHeadersVisible = false,
+    VirtualMode = true,
+    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
+};
+private readonly TextBox _vipSearchBox = new();
+private readonly System.Windows.Forms.Timer _vipSearchDebounce = new() { Interval = 200 };
+private readonly Label _vipStatus = new()
+{
+    AutoSize = true,
+    Margin = new Padding(8, 8, 0, 0),
+    ForeColor = Color.FromArgb(120, 120, 120)
+};
+private readonly List<Dictionary<string, object?>> _vipAll = new();
+private List<Dictionary<string, object?>> _vipView = new();
+private readonly List<string> _vipColumns = new();
+private string? _vipSortColumn;
+private bool _vipSortAscending = true;
+private bool _vipLoaded;
+private bool _vipLoading;
+private static readonly HttpClient _vipHttp = new();
+/* end: fields */
+
+// ---------- 二、UI 构建与事件绑定（在 BuildTabs 中） ----------
+// 源：ResultForm.cs [L384-L451] + [附加 L1-L56]
+// 作用：创建“唯品库存”Tab 页；绑定 CellValueNeeded/ColumnHeaderMouseClick；
+//      搜索框防抖 -> ApplyVipFilter；Tab 切换 -> EnsureVipInventoryLoadedAsync；刷新按钮 -> ForceReloadVipInventoryAsync。
+/* begin: BuildTabs wiring */
+_vipInvTab = new TabPage("唯品库存");
+var vipLayout = new TableLayoutPanel
+{
+    Dock = DockStyle.Fill,
+    ColumnCount = 1,
+    RowCount = 2
+};
+vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+vipLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+var vipTop = new TableLayoutPanel
+{
+    Dock = DockStyle.Fill,
+    ColumnCount = 3
+};
+vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+
+_vipSearchBox.Dock = DockStyle.Fill;
+_vipSearchBox.MinimumSize = new Size(0, 30);
+_vipSearchBox.Margin = new Padding(0, 4, 0, 4);
+_vipSearchBox.PlaceholderText = "搜索（款式名/颜色/尺码等，空格分隔多条件）";
+_vipSearchBox.TextChanged += (s, e) => { _vipSearchDebounce.Stop(); _vipSearchDebounce.Start(); };
+vipTop.Controls.Add(_vipSearchBox, 0, 0);
+
+_vipStatus.Text = string.Empty;
+vipTop.Controls.Add(_vipStatus, 1, 0);
+
+var vipRefresh = new Button { Text = "刷新", AutoSize = true, Padding = new Padding(8,4,8,4), Margin = new Padding(8,4,0,4) };
+vipRefresh.Click += async (s, e) => await ForceReloadVipInventoryAsync();
+vipTop.Controls.Add(vipRefresh, 2, 0);
+
+vipLayout.Controls.Add(vipTop, 0, 0);
+vipLayout.Controls.Add(_vipGrid, 0, 1);
+_vipInvTab.Controls.Add(vipLayout);
+_tabs.TabPages.Add(_vipInvTab);
+
+_vipGrid.CellValueNeeded += VipGrid_CellValueNeeded;
+_vipGrid.ColumnHeaderMouseClick += VipGrid_ColumnHeaderMouseClick;
+
+_vipSearchDebounce.Tick += (s, e) => { _vipSearchDebounce.Stop(); ApplyVipFilter(_vipSearchBox.Text); };
+
+_tabs.SelectedIndexChanged += async (s, e) =>
+{
+    if (_tabs.SelectedTab == _vipInvTab) await EnsureVipInventoryLoadedAsync();
+};
+/* end: BuildTabs wiring */
+
+// ---------- 三、加载/刷新 & 数据获取与解析 ----------
+// 源：ResultForm.cs [L65-L104] + [L106-L83]
+/* begin: load & fetch */
+private async Task EnsureVipInventoryLoadedAsync()
+{
+    if (_vipLoaded || _vipLoading) return;
+    await ForceReloadVipInventoryAsync();
+}
+
+private async Task ForceReloadVipInventoryAsync()
+{
+    if (_vipLoading) return;
+
+    _vipLoading = true;
+    _vipStatus.Text = "唯品库存加载中...";
+
+    try
+    {
+        var rows = await FetchVipInventoryAsync();
+        _vipAll.Clear();
+        if (rows != null) _vipAll.AddRange(rows);
+        _vipView = _vipAll.ToList();
+
+        BuildVipColumnsAndBind();
+        _vipLoaded = true;
+        _vipStatus.Text = $"共 {_vipView.Count} 条记录";
+    }
+    catch (Exception ex)
+    {
+        _vipAll.Clear();
+        _vipView = new List<Dictionary<string, object?>>
+        {
+            new() { ["错误"] = ex.Message }
+        };
+        BuildVipColumnsAndBind();
+        _vipLoaded = false;
+        _vipStatus.Text = "加载失败";
+    }
+    finally
+    {
+        _vipLoading = false;
+    }
+}
+
+private async Task<List<Dictionary<string, object?>>> FetchVipInventoryAsync()
+{
+    var url = "http://192.168.40.97:8001/inventory";
+
+    using var resp = await _vipHttp.GetAsync(url);
+    resp.EnsureSuccessStatusCode();
+    var json = await resp.Content.ReadAsStringAsync();
+
+    return await Task.Run(() =>
+    {
+        var list = new List<Dictionary<string, object?>>();
+        using var doc = JsonDocument.Parse(json);
+
+        if (doc.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var elem in doc.RootElement.EnumerateArray())
+            {
+                var dict = new Dictionary<string, object?>();
+                foreach (var prop in elem.EnumerateObject())
+                {
+                    object? val = prop.Value.ValueKind switch
+                    {
+                        JsonValueKind.String => prop.Value.GetString(),
+                        JsonValueKind.Number when prop.Value.TryGetInt64(out var iv) => iv,
+                        JsonValueKind.Number when prop.Value.TryGetDouble(out var dv) => dv,
+                        JsonValueKind.True or JsonValueKind.False => prop.Value.GetBoolean(),
+                        JsonValueKind.Null => null,
+                        _ => prop.Value.ToString()
+                    };
+                    dict[prop.Name] = val;
+                }
+                list.Add(dict);
+            }
+        }
+
+        return list;
+    });
+}
+/* end: load & fetch */
+
+// ---------- 四、列定义与绑定（虚拟模式） ----------
+// 源：ResultForm.cs [L85-L106] + [L35-L76]
+/* begin: columns & bind */
+/// <summary>
+/// 固定列顺序：款式名 / 白胚可用数 / 进货仓库存 / 成品占用数 / 可用数汇总
+/// </summary>
+private void BuildVipColumnsAndBind()
+{
+    _vipGrid.SuspendLayout();
+    try
+    {
+        _vipGrid.Columns.Clear();
+        _vipColumns.Clear();
+
+        if (_vipView == null || _vipView.Count == 0)
+        {
+            _vipGrid.RowCount = 0;
+            return;
+        }
+
+        _vipColumns.Add("product_original_code");
+        _vipColumns.Add("白胚可用数");
+        _vipColumns.Add("进货仓库存");
+        _vipColumns.Add("成品占用数");
+        _vipColumns.Add("__sum");
+
+        foreach (var col in _vipColumns)
+        {
+            var header = col switch
+            {
+                "product_original_code" => "款式名",
+                "白胚可用数" => "白胚可用数",
+                "进货仓库存" => "进货仓库存",
+                "成品占用数" => "成品占用数",
+                "__sum" => "可用数汇总",
+                _ => col
+            };
+
+            _vipGrid.Columns.Add(col, header);
+        }
+
+        _vipGrid.RowCount = _vipView.Count;
+    }
+    finally
+    {
+        _vipGrid.ResumeLayout();
+    }
+}
+/* end: columns & bind */
+
+// ---------- 五、虚拟表格回显（CellValueNeeded） ----------
+// 源：ResultForm.cs [L78-L103] + [L1-L19]
+/* begin: virtual grid value */
+private void VipGrid_CellValueNeeded(object? sender, DataGridViewCellValueEventArgs e)
+{
+    if (_vipView == null) return;
+    if (e.RowIndex < 0 || e.RowIndex >= _vipView.Count) return;
+    if (e.ColumnIndex < 0 || e.ColumnIndex >= _vipColumns.Count) return;
+
+    var row = _vipView[e.RowIndex];
+    if (row == null) return;
+
+    var key = _vipColumns[e.ColumnIndex];
+
+    if (key == "__sum")
+    {
+        var sum =
+            GetVipNumber(row, "白胚可用数", "白坯可用数") +
+            GetVipNumber(row, "进货仓库存") +
+            GetVipNumber(row, "成品占用数");
+        e.Value = sum;
+        return;
+    }
+
+    if (key == "成品占用数")
+    {
+        e.Value = GetVipNumber(row, "成品占用数");
+        return;
+    }
+
+    if (key == "白胚可用数")
+    {
+        if (!row.TryGetValue("白胚可用数", out var val) || val == null)
+            row.TryGetValue("白坯可用数", out val);
+        e.Value = val ?? 0;
+        return;
+    }
+
+    if (key == "product_original_code")
+    {
+        row.TryGetValue("product_original_code", out var val);
+        e.Value = val;
+        return;
+    }
+
+    if (row.TryGetValue(key, out var v))
+    {
+        e.Value = v;
+    }
+}
+/* end: virtual grid value */
+
+// ---------- 六、列头点击排序 ----------
+// 源：ResultForm.cs [L22-L54] + [L56-L89]
+/* begin: sorting */
+private void VipGrid_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
+{
+    if (_vipView == null || _vipView.Count <= 1) return;
+    if (e.ColumnIndex < 0 || e.ColumnIndex >= _vipColumns.Count) return;
+
+    var col = _vipColumns[e.ColumnIndex];
+
+    if (_vipSortColumn == col) _vipSortAscending = !_vipSortAscending;
+    else { _vipSortColumn = col; _vipSortAscending = true; }
+
+    _vipView.Sort((a, b) =>
+    {
+        var ka = GetVipSortKey(a, col);
+        var kb = GetVipSortKey(b, col);
+
+        if (ka == null && kb == null) return 0;
+        if (ka == null) return -1;
+        if (kb == null) return 1;
+        return ka.CompareTo(kb);
+    });
+
+    if (!_vipSortAscending) _vipView.Reverse();
+
+    _vipGrid.Invalidate();
+}
+
+private IComparable? GetVipSortKey(Dictionary<string, object?>? row, string col)
+{
+    if (row == null) return null;
+
+    if (col == "__sum")
+    {
+        return
+            GetVipNumber(row, "白胚可用数", "白坯可用数") +
+            GetVipNumber(row, "进货仓库存") +
+            GetVipNumber(row, "成品占用数");
+    }
+
+    if (col == "白胚可用数") return GetVipNumber(row, "白胚可用数", "白坯可用数");
+    if (col == "进货仓库存") return GetVipNumber(row, "进货仓库存");
+    if (col == "成品占用数") return GetVipNumber(row, "成品占用数");
+
+    if (!row.TryGetValue(col, out var val) || val == null) return null;
+
+    switch (val)
+    {
+        case int i: return i;
+        case long l: return l;
+        case double d: return d;
+    }
+
+    if (double.TryParse(val.ToString(), out var dv)) return dv;
+
+    return val.ToString();
+}
+
+private double GetVipNumber(Dictionary<string, object?> row, params string[] keys)
+{
+    foreach (var key in keys)
+    {
+        if (!row.TryGetValue(key, out var val) || val == null)
+            continue;
+
+        switch (val)
+        {
+            case int i: return i;
+            case long l: return l;
+            case double d: return d;
+            case float f: return f;
+            case string s when double.TryParse(s, out var dv): return dv;
+        }
+    }
+
+    return 0d;
+}
+/* end: sorting */
+
+// ---------- 七、本地过滤（搜索框） ----------
+// 源：ResultForm.cs [L52-L101]
+/* begin: filter */
+/// <summary>
+/// 多关键词 AND 搜索（空格/逗号/加号等拆分），在整行文本上匹配。
+/// 不重新请求接口，仅针对本地缓存数据过滤。
+/// </summary>
+private void ApplyVipFilter(string? keyword)
+{
+    if (_vipAll == null || _vipAll.Count == 0)
+    {
+        _vipView = new List<Dictionary<string, object?>>();
+    }
+    else
+    {
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            _vipView = _vipAll.ToList();
+        }
+        else
+        {
+            var parts = keyword
+                .Split(new[] { ' ', '　', ',', '，', '+', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => p.Trim())
+                .Where(p => p.Length > 0)
+                .Select(p => p.ToLowerInvariant())
+                .ToArray();
+
+            if (parts.Length == 0)
+            {
+                _vipView = _vipAll.ToList();
+            }
+            else
+            {
+                _vipView = _vipAll
+                    .Where(row =>
+                    {
+                        if (row == null) return false;
+
+                        var text = string.Join(" ", row.Values
+                            .Select(v => v?.ToString() ?? string.Empty))
+                            .ToLowerInvariant();
+
+                        return parts.All(p => text.Contains(p));
+                    })
+                    .ToList();
+            }
+        }
+    }
+
+    BuildVipColumnsAndBind();
+    _vipGrid.Invalidate();
+}
+/* end: filter */
+
+// ===== 结束 =====
+// === VIP INTEGRATION END ===
 }

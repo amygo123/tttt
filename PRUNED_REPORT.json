@@ -1,0 +1,33 @@
+{
+  "reachable_classes": [
+    "Aggregations",
+    "ApiHelper",
+    "AppConfig",
+    "Formatter",
+    "HeadersCfg",
+    "InvSnapshot",
+    "InventoryAlertCfg",
+    "InventoryCfg",
+    "InventoryTabPage",
+    "ParsedPayload",
+    "Parser",
+    "PayloadParser",
+    "Program",
+    "ResultForm",
+    "TrayApp",
+    "UiCfg",
+    "WindowCfg"
+  ],
+  "kept_files": [
+    "Config.cs",
+    "Aggregations.cs",
+    "Program.cs",
+    "InventoryTabPage.cs",
+    "ResultForm.cs",
+    "Parser.cs",
+    "TrayApp.cs"
+  ],
+  "removed_files": [
+    "appsettings.json"
+  ]
+}
