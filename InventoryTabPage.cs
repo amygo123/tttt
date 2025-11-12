@@ -85,6 +85,17 @@ namespace StyleWatcherWin
 
         public InventoryTabPage(AppConfig cfg)
         {
+        global::UiKit.ApplyGridDefaults(_grid);
+        global::UiKit.ApplyGridDefaults(grid);
+        global::UiKit.ApplyTabsDefaults(_subTabs);
+        global::UiKit.ApplyToolTipDefaults(_tip);
+        global::UiKit.ApplyLabelDefaults(_lblAvail);
+        global::UiKit.ApplyLabelDefaults(_lblOnHand);
+        global::UiKit.ApplyPlotDefaults(_pvColor);
+        global::UiKit.ApplyPlotDefaults(_pvHeat);
+        global::UiKit.ApplyPlotDefaults(_pvSize);
+        global::UiKit.ApplyPlotDefaults(pv);
+
             _cfg = cfg;
             Text = "库存";
 
