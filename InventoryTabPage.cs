@@ -75,7 +75,7 @@ namespace StyleWatcherWin
         private readonly TabControl _subTabs = new() { Dock = DockStyle.Fill };
 
         // 悬浮提示
-        private readonly ToolTip _tip = new() { InitialDelay = 0, ReshowDelay = 0, AutoPopDelay = 8000, ShowAlways = true };
+        private readonly ToolTip _tip = new() { InitialDelay = 0;
 
         // 当前点击筛选（总览热力图）
         private (string? color, string? size)? _activeCell = null;
