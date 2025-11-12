@@ -269,8 +269,16 @@ private Control MakeKpiMissingChips(Panel host, string title)
             {
                 var rb=new RadioButton{Text=$"{w} 日",AutoSize=true,Tag=w,Margin=new Padding(0,2,18,0)};
                 if(w==_trendWindow) rb.Checked=true;
-                if(w==_trendWindow) rb.Checked=true;
-                rb.CheckedChanged += (s, e) => { if (s is RadioButton rbCtrl && rbCtrl.Checked) { if (rbCtrl.Tag is int w2) { _trendWindow = w2; if (_sales != null && _sales.Count > 0) RenderCharts(_sales); } } };
+                rb.CheckedChanged += (s, e) => {
+    if (s is RadioButton rbCtrl && rbCtrl.Checked)
+    {
+        if (rbCtrl.Tag is int w2)
+        {
+            _trendWindow = w2;
+            if (_sales != null && _sales.Count > 0) RenderCharts(_sales);
+        }
+    }
+};
             }
             tools.Controls.Add(_trendSwitch);
 
@@ -322,55 +330,9 @@ private Control MakeKpiMissingChips(Panel host, string title)
             _invPage = new InventoryTabPage(_cfg);
             _invPage.SummaryUpdated += OnInventorySummary;
             _tabs.TabPages.Add(_invPage);
-_vipInvTab = new TabPage("唯品库存");
-var vipLayout = new TableLayoutPanel
-{
-    Dock = DockStyle.Fill,
-    ColumnCount = 1,
-    RowCount = 2
-};
-vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-vipLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-var vipTop = new TableLayoutPanel
-{
-    Dock = DockStyle.Fill,
-    ColumnCount = 3
-};
-vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-
-_vipSearchBox.Dock = DockStyle.Fill;
-_vipSearchBox.MinimumSize = new Size(0, 30);
-_vipSearchBox.Margin = new Padding(0, 4, 0, 4);
-_vipSearchBox.PlaceholderText = "搜索（款式名/颜色/尺码等，空格分隔多条件）";
-_vipSearchBox.TextChanged += (s, e) => { _vipSearchDebounce.Stop(); _vipSearchDebounce.Start(); };
-vipTop.Controls.Add(_vipSearchBox, 0, 0);
-
-_vipStatus.Text = string.Empty;
-vipTop.Controls.Add(_vipStatus, 1, 0);
-
-var vipRefresh = new Button { Text = "刷新", AutoSize = true, Padding = new Padding(8,4,8,4), Margin = new Padding(8,4,0,4) };
-vipRefresh.Click += async (s, e) => await ForceReloadVipInventoryAsync();
-vipTop.Controls.Add(vipRefresh, 2, 0);
-
-vipLayout.Controls.Add(vipTop, 0, 0);
-vipLayout.Controls.Add(_vipGrid, 0, 1);
-_vipInvTab.Controls.Add(vipLayout);
-_tabs.TabPages.Add(_vipInvTab);
-
-_vipGrid.CellValueNeeded += VipGrid_CellValueNeeded;
-_vipGrid.ColumnHeaderMouseClick += VipGrid_ColumnHeaderMouseClick;
-
-_vipSearchDebounce.Tick += (s, e) => { _vipSearchDebounce.Stop(); ApplyVipFilter(_vipSearchBox.Text); };
-
-_tabs.SelectedIndexChanged += async (s, e) =>
-{
-    if (_tabs.SelectedTab == _vipInvTab) await EnsureVipInventoryLoadedAsync();
-};
-/* end: BuildTabs wiring */
-        }
+        
+            BuildVipUI();
+}
 
         private static Label? ValueLabelOf(Panel p)
         {
@@ -759,6 +721,9 @@ if (other > 0)
 
 
         
+
+
+// === VIP INTEGRATION BEGIN ===
 // ===== 提取自 ResultForm.cs：唯品库存 页面相关代码（不多不少，按调用逻辑排序） =====
 // 说明：本文件聚合了字段声明、UI 构建与事件绑定、数据加载/解析/绑定、虚拟表格回显、排序与搜索过滤等。
 // 原始位置见各段注释（以“源：ResultForm.cs [Lxx-Lyy]”标注）。
@@ -801,7 +766,58 @@ private static readonly HttpClient _vipHttp = new();
 // 源：ResultForm.cs [L384-L451] + [附加 L1-L56]
 // 作用：创建“唯品库存”Tab 页；绑定 CellValueNeeded/ColumnHeaderMouseClick；
 //      搜索框防抖 -> ApplyVipFilter；Tab 切换 -> EnsureVipInventoryLoadedAsync；刷新按钮 -> ForceReloadVipInventoryAsync。
-/* begin: BuildTabs wiring */
+/* begin: BuildTabs wiring */ // wrapped into BuildVipUI()
+        private void BuildVipUI()
+        {
+            _vipInvTab = new TabPage("唯品库存");
+            var vipLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            vipLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            
+            var vipTop = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3
+            };
+            vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            
+            _vipSearchBox.Dock = DockStyle.Fill;
+            _vipSearchBox.MinimumSize = new Size(0, 30);
+            _vipSearchBox.Margin = new Padding(0, 4, 0, 4);
+            _vipSearchBox.PlaceholderText = "搜索（款式名/颜色/尺码等，空格分隔多条件）";
+            _vipSearchBox.TextChanged += (s, e) => { _vipSearchDebounce.Stop(); _vipSearchDebounce.Start(); };
+            vipTop.Controls.Add(_vipSearchBox, 0, 0);
+            
+            _vipStatus.Text = string.Empty;
+            vipTop.Controls.Add(_vipStatus, 1, 0);
+            
+            var vipRefresh = new Button { Text = "刷新", AutoSize = true, Padding = new Padding(8,4,8,4), Margin = new Padding(8,4,0,4) };
+            vipRefresh.Click += async (s, e) => await ForceReloadVipInventoryAsync();
+            vipTop.Controls.Add(vipRefresh, 2, 0);
+            
+            vipLayout.Controls.Add(vipTop, 0, 0);
+            vipLayout.Controls.Add(_vipGrid, 0, 1);
+            _vipInvTab.Controls.Add(vipLayout);
+            _tabs.TabPages.Add(_vipInvTab);
+            
+            _vipGrid.CellValueNeeded += VipGrid_CellValueNeeded;
+            _vipGrid.ColumnHeaderMouseClick += VipGrid_ColumnHeaderMouseClick;
+            
+            _vipSearchDebounce.Tick += (s, e) => { _vipSearchDebounce.Stop(); ApplyVipFilter(_vipSearchBox.Text); };
+            
+            _tabs.SelectedIndexChanged += async (s, e) =>
+            {
+                if (_tabs.SelectedTab == _vipInvTab) await EnsureVipInventoryLoadedAsync();
+            };
+        }
+/* end: BuildTabs wiring */
 
 // ---------- 三、加载/刷新 & 数据获取与解析 ----------
 // 源：ResultForm.cs [L65-L104] + [L106-L83]
@@ -1125,7 +1141,7 @@ private void ApplyVipFilter(string? keyword)
 /* end: filter */
 
 // ===== 结束 =====
-
-
+// === VIP INTEGRATION END ===
 }
+
 }
