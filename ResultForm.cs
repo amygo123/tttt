@@ -11,6 +11,7 @@ using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
 using OxyPlot.WindowsForms;
+using System.Text.Json;
 
 namespace StyleWatcherWin
 {
