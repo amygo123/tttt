@@ -95,8 +95,8 @@ namespace StyleWatcherWin
         global::UiKit.ApplyPlotDefaults(_pvSize);
             _cfg = cfg;
             Text = "库存";
-
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };
+
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34)); // 顶部工具条（合计/刷新）
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 60));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 40));
@@ -466,7 +466,8 @@ namespace StyleWatcherWin
                 var page = new TabPage($"{g.Key}（{g.Sum(x => x.Available)}）");
 
                 // 布局：上=搜索框，下=左右联动（热力图+明细）
-                var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };
+
                 root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
                 root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
