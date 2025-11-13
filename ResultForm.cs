@@ -596,22 +596,44 @@ if (other > 0)
 
         private void ApplyFilter(string q)
         {
-            q = (q ?? "").Trim();
+            q = (q ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(q))
             {
                 _binding.DataSource = new BindingList<object>(_gridMaster);
                 _grid.ClearSelection();
                 return;
             }
-            var filtered = _gridMaster.Where(x=>{
-                var t=x.GetType();
-                string Get(string n)=> t.GetProperty(n)?.GetValue(x)?.ToString() ?? "";
-                return Get("日期").Contains(q, StringComparison.OrdinalIgnoreCase)
-                    || Get("款式").Contains(q, StringComparison.OrdinalIgnoreCase)
-                    || Get("尺码").Contains(q, StringComparison.OrdinalIgnoreCase)
-                    || Get("颜色").Contains(q, StringComparison.OrdinalIgnoreCase)
-                    || Get("数量").Contains(q, StringComparison.OrdinalIgnoreCase);
-            }).ToList();
+
+            string ToText(object x)
+            {
+                if (x == null) return string.Empty;
+                var t = x.GetType();
+                string Get(string n)
+                {
+                    try
+                    {
+                        return t.GetProperty(n)?.GetValue(x)?.ToString() ?? string.Empty;
+                    }
+                    catch
+                    {
+                        return string.Empty;
+                    }
+                }
+
+                // 保持与原过滤字段一致：日期/款式/尺码/颜色/数量
+                return string.Join(" ",
+                    Get("日期"),
+                    Get("款式"),
+                    Get("尺码"),
+                    Get("颜色"),
+                    Get("数量"));
+            }
+
+            var filtered = UiSearch
+                .FilterAllTokens(_gridMaster, ToText, q)
+                .Cast<object>()
+                .ToList();
+
             _binding.DataSource = new BindingList<object>(filtered);
             _grid.ClearSelection();
         }
