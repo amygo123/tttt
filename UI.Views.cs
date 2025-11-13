@@ -11,21 +11,15 @@ using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
 using OxyPlot.WindowsForms;
-
 using System.IO;
 using ClosedXML.Excel;
-using OxyPlot.WindowsForms;
-using System.Text.Json;
-
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
-using System.IO;
-
 
 namespace StyleWatcherWin
 {
-    // ===== Merged from: InventoryTabPage.cs =====
+    // ===== Merged class: InventoryTabPage =====
     public class InventoryTabPage : TabPage
         {
             public event Action<int, int, Dictionary<string, int>>? SummaryUpdated;
@@ -677,8 +671,8 @@ namespace StyleWatcherWin
 
         }
 
-    // ===== Merged from: ResultForm.cs =====
-    static class UI
+    // ===== Merged class: UI =====
+    class UI
         {
             public static readonly Font Title = new("Microsoft YaHei UI", 12, FontStyle.Bold);
             public static readonly Font Body  = new("Microsoft YaHei UI", 10);
@@ -692,7 +686,8 @@ namespace StyleWatcherWin
             public static readonly Color Green      = Color.FromArgb(26, 127, 55);
         }
 
-        public class ResultForm : Form
+    // ===== Merged class: ResultForm =====
+    public class ResultForm : Form
         {
             // 映射饼图切片 -> 仓库名（OxyPlot 2.1.0 的 PieSlice 无 Tag 属性）
             private readonly System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string> _warehouseSliceMap = new System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string>();
@@ -1808,8 +1803,8 @@ namespace StyleWatcherWin
     // === VIP INTEGRATION END ===
     }
 
-    // ===== Merged from: TrayApp.cs =====
-    public static class Formatter
+    // ===== Merged class: Formatter =====
+    class Formatter
         {
             public static string Prettify(string raw)
             {
@@ -1823,7 +1818,8 @@ namespace StyleWatcherWin
             }
         }
 
-        public class TrayApp : Form
+    // ===== Merged class: TrayApp =====
+    public class TrayApp : Form
         {
             // --- Win32 ---
             [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
