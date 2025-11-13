@@ -135,6 +135,12 @@ namespace StyleWatcherWin
 
             _all = await FetchInventoryAsync(styleName);
             RenderAll(_all);
+
+            if (_all.Rows.Count == 0)
+            {
+                _lblAvail.Text = "可用合计：0（未获取到库存数据）";
+                _lblOnHand.Text = "现有合计：0（未获取到库存数据）";
+            }
         }
 
         private void RenderAll(InvSnapshot snap)

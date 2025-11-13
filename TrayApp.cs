@@ -273,7 +273,19 @@ namespace StyleWatcherWin
                 w.SetLoading("查询中...");
                 // 统一走 ApiHelper
                 string raw = await ApiHelper.QueryAsync(_cfg, txt);
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    w.SetLoading("接口未返回任何内容");
+                    return;
+                }
+
                 string result = Formatter.Prettify(raw);
+                if (string.IsNullOrWhiteSpace(result))
+                {
+                    w.SetLoading("未解析到任何结果");
+                    return;
+                }
+
                 w.ApplyRawText(txt, result);
             }
             catch (Exception ex)

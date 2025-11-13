@@ -162,7 +162,19 @@ content.Controls.Add(_kpi, 0, 0);
 
                     SetLoading("查询中...");
                     string raw = await ApiHelper.QueryAsync(_cfg, txt);
+                    if (string.IsNullOrWhiteSpace(raw))
+                    {
+                        SetLoading("接口未返回任何内容");
+                        return;
+                    }
+
                     string result = Formatter.Prettify(raw);
+                    if (string.IsNullOrWhiteSpace(result))
+                    {
+                        SetLoading("未解析到任何结果");
+                        return;
+                    }
+
                     ApplyRawText(txt, result);
                 }
                 catch (Exception ex)
@@ -840,7 +852,15 @@ private async Task ForceReloadVipInventoryAsync()
 
         BuildVipColumnsAndBind();
         _vipLoaded = true;
-        _vipStatus.Text = $"共 {_vipView.Count} 条记录";
+
+        if (_vipView.Count == 0)
+        {
+            _vipStatus.Text = "未获取到唯品库存数据";
+        }
+        else
+        {
+            _vipStatus.Text = $"共 {_vipView.Count} 条记录";
+        }
     }
     catch (Exception ex)
     {
