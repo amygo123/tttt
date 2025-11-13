@@ -615,48 +615,18 @@ if (other > 0)
             var path = Path.Combine(saveDir, $"StyleWatcher_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
 
             using var wb = new XLWorkbook();
-            // 明细
-            var ws1 = wb.AddWorksheet("销售明细");
-            ws1.Cell(1,1).Value="日期"; ws1.Cell(1,2).Value="款式"; ws1.Cell(1,3).Value="颜色"; ws1.Cell(1,4).Value="尺码"; ws1.Cell(1,5).Value="数量";
-            var list=_gridMaster;
-            int r=2;
-            foreach(var it in list){
-                var t=it.GetType();
-                ws1.Cell(r,1).Value=t.GetProperty("日期")?.GetValue(it)?.ToString();
-                ws1.Cell(r,2).Value=t.GetProperty("款式")?.GetValue(it)?.ToString();
-                ws1.Cell(r,3).Value=t.GetProperty("颜色")?.GetValue(it)?.ToString();
-                ws1.Cell(r,4).Value=t.GetProperty("尺码")?.GetValue(it)?.ToString();
-                ws1.Cell(r,5).Value=t.GetProperty("数量")?.GetValue(it)?.ToString();
-                r++;
-            }
-            ws1.Columns().AdjustToContents();
 
-            // 趋势
-            var ws2 = wb.AddWorksheet("趋势");
-            ws2.Cell(1, 1).Value = "日期";
-            ws2.Cell(1, 2).Value = "数量";
-            var series = Aggregations.BuildDateSeries(_sales, _trendWindow);
-            int rr = 2;
-            for (int i = 0; i < series.Count; i++)
-            {
-                ws2.Cell(rr, 1).Value = series[i].day.ToString("yyyy-MM-dd");
-                ws2.Cell(rr, 2).Value = series[i].qty;
-                rr++;
-            }
-            ws2.Columns().AdjustToContents();
-
-            // 口径说明
-            var ws3 = wb.AddWorksheet("口径说明");
-            ws3.Cell(1, 1).Value = "趋势窗口（天）";
-            ws3.Cell(1, 2).Value = _trendWindow;
-            ws3.Cell(2, 1).Value = "库存天数阈值";
-            ws3.Cell(2, 2).Value = $"红<{_cfg.inventoryAlert?.docRed ?? 3}，黄<{_cfg.inventoryAlert?.docYellow ?? 7}";
-            ws3.Cell(3, 1).Value = "销量基线天数";
-            ws3.Cell(3, 2).Value = _cfg.inventoryAlert?.minSalesWindowDays ?? 7;
-            ws3.Columns().AdjustToContents();
+            // 报表内容交给 ResultExporter 构建（保持原有三个工作表：销售明细 / 趋势 / 口径说明）
+            ResultExporter.FillWorkbook(
+                wb,
+                _gridMaster,
+                _sales,
+                _trendWindow,
+                _cfg
+            );
 
             wb.SaveAs(path);
-            try{ System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\""); }catch{}
+            try { System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\""); } catch { }
         }
     
 
