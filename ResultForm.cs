@@ -148,7 +148,32 @@ content.Controls.Add(_kpi, 0, 0);
 
             _btnQuery.Text="重新查询";
             _btnQuery.AutoSize=true; _btnQuery.Padding=new Padding(10,6,10,6);
-            _btnQuery.Click += async (s,e)=>{ _btnQuery.Enabled=false; try{ await ReloadAsync(""); } finally{ _btnQuery.Enabled=true; } };
+            _btnQuery.Click += async (s,e)=>
+            {
+                _btnQuery.Enabled = false;
+                try
+                {
+                    var txt = _input.Text ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(txt))
+                    {
+                        SetLoading("请输入要查询的内容");
+                        return;
+                    }
+
+                    SetLoading("查询中...");
+                    string raw = await ApiHelper.QueryAsync(_cfg, txt);
+                    string result = Formatter.Prettify(raw);
+                    ApplyRawText(txt, result);
+                }
+                catch (Exception ex)
+                {
+                    SetLoading($"错误：{ex.Message}");
+                }
+                finally
+                {
+                    _btnQuery.Enabled = true;
+                }
+            };
 
             _btnExport.Text="导出Excel";
             _btnExport.AutoSize=true; _btnExport.Padding=new Padding(10,6,10,6);
