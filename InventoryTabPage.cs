@@ -484,6 +484,8 @@ namespace StyleWatcherWin
                 .ToList();
         }
 
+
+        public System.Collections.Generic.IReadOnlyList<InvRow> AllRows => _all.Rows;
     }
 }
 #pragma warning restore 0618

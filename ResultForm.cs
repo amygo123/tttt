@@ -616,13 +616,21 @@ if (other > 0)
 
             using var wb = new XLWorkbook();
 
-            // 报表内容交给 ResultExporter 构建（保持原有三个工作表：销售明细 / 趋势 / 口径说明）
+            // 报表内容交给 ResultExporter 构建：
+            // 1) 销售明细（当前主表 _gridMaster）
+            // 2) 库存明细（库存页 InventoryTabPage 内部的 InvRow 列表）
+            // 3) 唯品库存明细（_vipAll 中的原始唯品库存数据）
+            IReadOnlyList<InvRow> invRows = Array.Empty<InvRow>();
+            if (_invPage != null)
+            {
+                invRows = _invPage.AllRows;
+            }
+
             ResultExporter.FillWorkbook(
                 wb,
                 _gridMaster,
-                _sales,
-                _trendWindow,
-                _cfg
+                invRows,
+                _vipAll
             );
 
             wb.SaveAs(path);
