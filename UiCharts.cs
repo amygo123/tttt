@@ -9,7 +9,6 @@ namespace StyleWatcherWin
 {
     /// <summary>
     /// Shared chart helpers built on top of OxyPlot.
-    /// Non-breaking: currently unused; can be adopted incrementally.
     /// </summary>
     internal static class UiCharts
     {

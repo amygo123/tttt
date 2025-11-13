@@ -6,7 +6,6 @@ namespace StyleWatcherWin
 {
     /// <summary>
     /// Shared search helpers for WinForms grids and collections.
-    /// Non-breaking: currently unused; can be wired in gradually.
     /// </summary>
     internal static class UiSearch
     {

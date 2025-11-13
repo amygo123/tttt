@@ -458,6 +458,7 @@ namespace StyleWatcherWin
         private void BindGrid(DataGridView grid, IEnumerable<InvRow> rows)
         {
             PrepareGridColumns(grid);
+            UiGrid.Optimize(grid);
             grid.DataSource = new BindingList<InvRow>(rows.ToList());
         }
 

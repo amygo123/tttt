@@ -4,7 +4,6 @@ namespace StyleWatcherWin
 {
     /// <summary>
     /// Shared DataGridView helpers to keep UI configuration consistent.
-    /// Non-breaking: currently unused; can be wired into specific grids gradually.
     /// </summary>
     internal static class UiGrid
     {
