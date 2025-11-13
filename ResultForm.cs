@@ -95,7 +95,7 @@ namespace StyleWatcherWin
             Width = Math.Max(1600, _cfg.window.width);
             Height = Math.Max(900, _cfg.window.height);
             StartPosition = FormStartPosition.CenterScreen;
-            TopMost = _cfg.window.alwaysOnTop;
+            TopMost = false;
             BackColor = Color.White;
             KeyPreview = true;
             KeyDown += (s,e)=>{ if(e.KeyCode==Keys.Escape) Hide(); };
@@ -359,8 +359,8 @@ private Control MakeKpiMissingChips(Panel host, string title)
         // —— 与 TrayApp 对齐的接口 —— //
         public void FocusInput(){ try{ if(WindowState==FormWindowState.Minimized) WindowState=FormWindowState.Normal; _input.Focus(); _input.SelectAll(); }catch{} }
         public void ShowNoActivateAtCursor(){ try{ StartPosition=FormStartPosition.Manual; var pt=Cursor.Position; Location=new Point(Math.Max(0,pt.X-Width/2),Math.Max(0,pt.Y-Height/2)); Show(); }catch{ Show(); } }
-        public void ShowAndFocusCentered(){ ShowAndFocusCentered(_cfg.window.alwaysOnTop); }
-        public void ShowAndFocusCentered(bool alwaysOnTop){ TopMost=alwaysOnTop; StartPosition=FormStartPosition.CenterScreen; Show(); Activate(); FocusInput(); }
+        public void ShowAndFocusCentered(){ ShowAndFocusCentered(false); }
+        public void ShowAndFocusCentered(bool alwaysOnTop){ TopMost=false; StartPosition=FormStartPosition.CenterScreen; Show(); Activate(); FocusInput(); }
         public void SetLoading(string message)
 {
     _status.Text = message ?? string.Empty;
