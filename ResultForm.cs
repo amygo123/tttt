@@ -323,6 +323,7 @@ private Control MakeKpiMissingChips(Panel host, string title)
             _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
             _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.AllCells;
             _grid.DataSource=_binding;
+            UiGrid.Optimize(_grid);
             panel.Controls.Add(_grid,0,2);
             detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
