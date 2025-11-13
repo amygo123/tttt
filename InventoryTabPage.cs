@@ -232,72 +232,21 @@ namespace StyleWatcherWin
         #region 绘图与缩放（柱状图降序 + 默认 Top10）
         private void RenderBarsByColor(InvSnapshot snap, PlotView pv, string title)
         {
-            var model = new PlotModel { Title = title };
-            var data = snap.Rows.GroupBy(r => r.Color)
-                                .Select(g => new { Key = g.Key, V = g.Sum(x => x.Available) })
-                                .OrderByDescending(x => x.V)
-                                .ToList();
+            var data = snap.Rows
+                .GroupBy(r => r.Color)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(x => x.Available)));
 
-            var cat = new CategoryAxis
-            {
-                Position = AxisPosition.Left,
-                IsZoomEnabled = true,
-                IsPanEnabled = true,
-                // 关键：翻转轴方向，确保数据按我们添加的顺序从上到下显示
-                StartPosition = 1, EndPosition = 0
-            };
-            foreach (var d in data) cat.Labels.Add(d.Key);
-
-            var val = new LinearAxis { Position = AxisPosition.Bottom, MinorGridlineStyle = LineStyle.Dot, MajorGridlineStyle = LineStyle.Solid, IsZoomEnabled = true, IsPanEnabled = true };
-            var series = new BarSeries
-            {
-                LabelFormatString = "{0}",
-                LabelPlacement = LabelPlacement.Inside,
-                LabelMargin = 6
-            };
-            foreach (var d in data) series.Items.Add(new BarItem(d.V));
-
-            model.Axes.Add(cat);
-            model.Axes.Add(val);
-            model.Series.Add(series);
-            pv.Model = model;
-
-            ApplyTopNZoom(cat, data.Count, 10);
+            pv.Model = UiCharts.BuildBarModel(data, title, topN: 10);
             BindPanZoom(pv);
         }
 
         private void RenderBarsBySize(InvSnapshot snap, PlotView pv, string title)
         {
-            var model = new PlotModel { Title = title };
-            var data = snap.Rows.GroupBy(r => r.Size)
-                                .Select(g => new { Key = g.Key, V = g.Sum(x => x.Available) })
-                                .OrderByDescending(x => x.V)
-                                .ToList();
+            var data = snap.Rows
+                .GroupBy(r => r.Size)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(x => x.Available)));
 
-            var cat = new CategoryAxis
-            {
-                Position = AxisPosition.Left,
-                IsZoomEnabled = true,
-                IsPanEnabled = true,
-                StartPosition = 1, EndPosition = 0
-            };
-            foreach (var d in data) cat.Labels.Add(d.Key);
-
-            var val = new LinearAxis { Position = AxisPosition.Bottom, MinorGridlineStyle = LineStyle.Dot, MajorGridlineStyle = LineStyle.Solid, IsZoomEnabled = true, IsPanEnabled = true };
-            var series = new BarSeries
-            {
-                LabelFormatString = "{0}",
-                LabelPlacement = LabelPlacement.Inside,
-                LabelMargin = 6
-            };
-            foreach (var d in data) series.Items.Add(new BarItem(d.V));
-
-            model.Axes.Add(cat);
-            model.Axes.Add(val);
-            model.Series.Add(series);
-            pv.Model = model;
-
-            ApplyTopNZoom(cat, data.Count, 10);
+            pv.Model = UiCharts.BuildBarModel(data, title, topN: 10);
             BindPanZoom(pv);
         }
 
