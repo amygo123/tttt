@@ -21,12 +21,14 @@ namespace StyleWatcherWin
         {
             var source = data ?? Enumerable.Empty<(string Key, double Qty)>();
 
-            var items = source
+            IEnumerable<(string Key, double Qty)> items = source
                 .Where(d => !string.IsNullOrWhiteSpace(d.Key))
                 .OrderByDescending(d => d.Qty);
 
             if (topN.HasValue && topN.Value > 0)
+            {
                 items = items.Take(topN.Value);
+            }
 
             var list = items.ToList();
 
