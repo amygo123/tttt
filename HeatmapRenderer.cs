@@ -10,8 +10,8 @@ namespace StyleWatcherWin
 {
     internal sealed class HeatmapContext
     {
-        public List<string> Colors { get; } = new();
-        public List<string> Sizes  { get; } = new();
+        public List<string> Colors { get; set; } = new();
+        public List<string> Sizes  { get; set; } = new();
         public double[,] Data      { get; set; } = new double[0, 0];
     }
 

@@ -291,7 +291,7 @@ namespace StyleWatcherWin
 
                 var subSnap = new InvSnapshot();
                 foreach (var r in g) subSnap.Rows.Add(r);
-                BuildHeatmap(subSnap, pv, $"{g.Key} 颜色×尺码");
+                HeatmapRenderer.BuildHeatmap(subSnap, pv, $"{g.Key} 颜色×尺码");
 
                 // 初始填充该仓明细
                 BindGrid(grid, subSnap.Rows);
