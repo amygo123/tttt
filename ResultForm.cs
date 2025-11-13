@@ -199,7 +199,7 @@ private Control MakeKpiMissingChips(Panel host, string title)
                 AutoScroll = true,
                 Padding = new Padding(0),
                 Margin = new Padding(0)
-            };
+            }
             _kpiMissingFlow = flow;
 
             inner.Controls.Add(t,0,0);
@@ -227,7 +227,7 @@ private Control MakeKpiMissingChips(Panel host, string title)
                     Padding = new Padding(6, 2, 6, 2),
                     Margin = new Padding(4, 2, 0, 2),
                     BorderStyle = BorderStyle.FixedSingle
-                };
+                }
                 _kpiMissingFlow.Controls.Add(chip);
             }
 
@@ -239,7 +239,7 @@ private Control MakeKpiMissingChips(Panel host, string title)
                     Text = "无",
                     Font = new Font("Microsoft YaHei UI", 9f, FontStyle.Regular),
                     ForeColor = Color.FromArgb(47,47,47)
-                };
+                }
                 _kpiMissingFlow.Controls.Add(none);
             }
 
@@ -279,7 +279,7 @@ private Control MakeKpiMissingChips(Panel host, string title)
             if (_sales != null && _sales.Count > 0) RenderCharts(_sales);
         }
     }
-};
+}
             }
             tools.Controls.Add(_trendSwitch);
 
@@ -562,14 +562,30 @@ if (other > 0)
         }
 
         private void ApplyFilter(string q)
-        {
-{
-    q = (q ?? string.Empty).Trim();
-    if (string.IsNullOrWhiteSpace(q))
-    {
-        _binding.DataSource = new BindingList<object>(_gridMaster);
-        _grid.ClearSelection();
-        return;
+        {{
+            q = (q ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                _binding.DataSource = new BindingList<object>(_gridMaster);
+                _grid.ClearSelection();
+                return;
+            }
+            string ToText(object x)
+            {
+                if (x == null) return string.Empty;
+                var t = x.GetType();
+                var vals = new List<string>();
+                foreach (var p in t.GetProperties())
+                {
+                    try { vals.Add(p.GetValue(x)?.ToString() ?? string.Empty); } catch { }
+                }
+                return string.Join(" ", vals);
+            }
+            var filtered = UiSearch.FilterAllTokens(_gridMaster, ToText, q).Cast<object>().ToList();
+            _binding.DataSource = new BindingList<object>(filtered);
+            _grid.ClearSelection();
+        }
+
     }
     string ToText(object x)
     {
@@ -728,7 +744,7 @@ private readonly DataGridView _vipGrid = new()
     RowHeadersVisible = false,
     VirtualMode = true,
     AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
-};
+}
 private readonly TextBox _vipSearchBox = new();
 private readonly System.Windows.Forms.Timer _vipSearchDebounce = new() { Interval = 200 };
 private readonly Label _vipStatus = new()
@@ -736,7 +752,7 @@ private readonly Label _vipStatus = new()
     AutoSize = true,
     Margin = new Padding(8, 8, 0, 0),
     ForeColor = Color.FromArgb(120, 120, 120)
-};
+}
 private readonly List<Dictionary<string, object?>> _vipAll = new();
 private List<Dictionary<string, object?>> _vipView = new();
 private readonly List<string> _vipColumns = new();
@@ -760,7 +776,7 @@ private static readonly HttpClient _vipHttp = new();
                 Dock = DockStyle.Fill,
                 ColumnCount = 1,
                 RowCount = 2
-            };
+            }
             vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             vipLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             
@@ -768,7 +784,7 @@ private static readonly HttpClient _vipHttp = new();
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 3
-            };
+            }
             vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -800,7 +816,7 @@ private static readonly HttpClient _vipHttp = new();
             _tabs.SelectedIndexChanged += async (s, e) =>
             {
                 if (_tabs.SelectedTab == _vipInvTab) await EnsureVipInventoryLoadedAsync();
-            };
+            }
         }
 /* end: BuildTabs wiring */
 
@@ -837,7 +853,7 @@ private async Task ForceReloadVipInventoryAsync()
         _vipView = new List<Dictionary<string, object?>>
         {
             new() { ["错误"] = ex.Message }
-        };
+        }
         BuildVipColumnsAndBind();
         _vipLoaded = false;
         _vipStatus.Text = "加载失败";
@@ -876,7 +892,7 @@ private async Task<List<Dictionary<string, object?>>> FetchVipInventoryAsync()
                         JsonValueKind.True or JsonValueKind.False => prop.Value.GetBoolean(),
                         JsonValueKind.Null => null,
                         _ => prop.Value.ToString()
-                    };
+                    }
                     dict[prop.Name] = val;
                 }
                 list.Add(dict);
@@ -924,7 +940,7 @@ private void BuildVipColumnsAndBind()
                 "成品占用数" => "成品占用数",
                 "__sum" => "可用数汇总",
                 _ => col
-            };
+            }
 
             _vipGrid.Columns.Add(col, header);
         }
