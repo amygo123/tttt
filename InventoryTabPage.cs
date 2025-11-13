@@ -231,15 +231,21 @@ namespace StyleWatcherWin
 
         #region 绘图与缩放（柱状图降序 + 默认 Top10）
         private void RenderBarsByColor(InvSnapshot snap, PlotView pv, string title)
-        {{
-            var data = snap.Rows
-                .GroupBy(r => r.Color)
-                .Select(g => (Key: g.Key, Qty: (double)g.Sum(x => x.Available)));
-            pv.Model = UiCharts.BuildBarModel(data, title, topN: 10);
-            BindPanZoom(pv);
-        }
+        {
+            var model = new PlotModel { Title = title };
+            var data = snap.Rows.GroupBy(r => r.Color)
+                                .Select(g => new { Key = g.Key, V = g.Sum(x => x.Available) })
+                                .OrderByDescending(x => x.V)
+                                .ToList();
 
-            }
+            var cat = new CategoryAxis
+            {
+                Position = AxisPosition.Left,
+                IsZoomEnabled = true,
+                IsPanEnabled = true,
+                // 关键：翻转轴方向，确保数据按我们添加的顺序从上到下显示
+                StartPosition = 1, EndPosition = 0
+            };
             foreach (var d in data) cat.Labels.Add(d.Key);
 
             var val = new LinearAxis { Position = AxisPosition.Bottom, MinorGridlineStyle = LineStyle.Dot, MajorGridlineStyle = LineStyle.Solid, IsZoomEnabled = true, IsPanEnabled = true };
@@ -248,7 +254,7 @@ namespace StyleWatcherWin
                 LabelFormatString = "{0}",
                 LabelPlacement = LabelPlacement.Inside,
                 LabelMargin = 6
-            }
+            };
             foreach (var d in data) series.Items.Add(new BarItem(d.V));
 
             model.Axes.Add(cat);
@@ -261,17 +267,12 @@ namespace StyleWatcherWin
         }
 
         private void RenderBarsBySize(InvSnapshot snap, PlotView pv, string title)
-        {{
-            var data = snap.Rows
-                .GroupBy(r => r.Size)
-                .Select(g => (Key: g.Key, Qty: (double)g.Sum(x => x.Available)));
+        {
+            var data = snap.Rows.GroupBy(r => r.Size).Select(g => (Key: g.Key, Qty: (double)g.Sum(x => x.Available)));
             pv.Model = UiCharts.BuildBarModel(data, title, topN: 10);
             BindPanZoom(pv);
-        }
-
-        }
-
-            }
+        
+            };
             foreach (var d in data) cat.Labels.Add(d.Key);
 
             var val = new LinearAxis { Position = AxisPosition.Bottom, MinorGridlineStyle = LineStyle.Dot, MajorGridlineStyle = LineStyle.Solid, IsZoomEnabled = true, IsPanEnabled = true };
@@ -280,7 +281,7 @@ namespace StyleWatcherWin
                 LabelFormatString = "{0}",
                 LabelPlacement = LabelPlacement.Inside,
                 LabelMargin = 6
-            }
+            };
             foreach (var d in data) series.Items.Add(new BarItem(d.V));
 
             model.Axes.Add(cat);
@@ -365,7 +366,7 @@ namespace StyleWatcherWin
                 Maximum = p95,                              // 高于 P95 的走 HighColor
                 LowColor = OxyColor.FromRgb(242, 242, 242), // 0 值显示很浅灰
                 HighColor = OxyColor.FromRgb(153, 0, 0)     // 极高值深红
-            }
+            };
             model.Axes.Add(caxis);
 
             // 类目映射轴
@@ -380,7 +381,7 @@ namespace StyleWatcherWin
                     var k = (int)Math.Round(d);
                     return (k >= 0 && k < colors.Count) ? colors[k] : "";
                 }
-            }
+            };
 
             var axY = new LinearAxis
             {
@@ -393,7 +394,7 @@ namespace StyleWatcherWin
                     var k = (int)Math.Round(d);
                     return (k >= 0 && k < sizes.Count) ? sizes[k] : "";
                 }
-            }
+            };
 
             model.Axes.Add(axX);
             model.Axes.Add(axY);
@@ -407,7 +408,7 @@ namespace StyleWatcherWin
                 Interpolate = false,
                 RenderMethod = HeatMapRenderMethod.Rectangles,
                 Data = data
-            }
+            };
 
             model.Series.Add(hm);
             pv.Model = model;
@@ -600,7 +601,7 @@ namespace StyleWatcherWin
                 {
                     _tip.Hide(pv);
                 }
-            }
+            };
 
             pv.MouseLeave += (s, e) => _tip.Hide(pv);
 
@@ -633,7 +634,7 @@ namespace StyleWatcherWin
 
                 // 点击空白取消
                 onSelectionChanged(null);
-            }
+            };
         }
         #endregion
         public System.Collections.Generic.IEnumerable<string> CurrentZeroSizes()
