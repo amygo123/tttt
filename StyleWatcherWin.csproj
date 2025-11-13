@@ -25,5 +25,9 @@
     <None Include="Resources\app.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-  </ItemGroup>
+      <Compile Include="Core.Helpers.cs" />
+    <Compile Include="UI.Views.cs" />
+    <Compile Include="App.Entry.cs" />
+    <Compile Include="Parser.cs" />
+</ItemGroup>
 </Project>
