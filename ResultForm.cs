@@ -321,7 +321,6 @@ private Control MakeKpiMissingChips(Panel host, string title)
             panel.Controls.Add(_filterChips,0,1);
 
             _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
-            UiGrid.Optimize(_grid);
             _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.AllCells;
             _grid.DataSource=_binding;
             panel.Controls.Add(_grid,0,2);
@@ -554,39 +553,56 @@ if (other > 0)
             modelTrend.Series.Add(line);
             _plotTrend.Model = modelTrend;
 
-            var sizeAgg = cleaned.GroupBy(x=>x.Size).Select(g=> (Key:g.Key, Qty:(double)g.Sum(z=>z.Qty)));
-            _plotSize.Model = UiCharts.BuildBarModel(sizeAgg, "尺码销量(Top10)", topN:10);
+            // 2) 尺码销量（降序）
+            var sizeAgg = cleaned.GroupBy(x=>x.Size).Select(g=> new { Key=g.Key, Qty=g.Sum(z=>z.Qty)})
+                                 .Where(a=>!string.IsNullOrWhiteSpace(a.Key) && a.Qty!=0)
+                                 .OrderByDescending(a=>a.Qty).ToList();
 
-            var colorAgg = cleaned.GroupBy(x=>x.Color).Select(g=> (Key:g.Key, Qty:(double)g.Sum(z=>z.Qty)));
-            _plotColor.Model = UiCharts.BuildBarModel(colorAgg, "颜色销量(Top10)", topN:10);
+            var modelSize = new PlotModel { Title = "尺码销量", PlotMargins = new OxyThickness(80,6,6,6) };
+            var sizeCat = new CategoryAxis{ Position=AxisPosition.Left, GapWidth=0.4, StartPosition=1, EndPosition=0 };
+            foreach(var a in sizeAgg) sizeCat.Labels.Add(a.Key);
+            modelSize.Axes.Add(sizeCat);
+            modelSize.Axes.Add(new LinearAxis{ Position = AxisPosition.Bottom, MinimumPadding = 0, AbsoluteMinimum = 0 });
+            var bsSize = new BarSeries
+            {
+                LabelFormatString = "{0}",
+                LabelPlacement = LabelPlacement.Inside,
+                LabelMargin = 6
+            };
+            foreach(var a in sizeAgg) bsSize.Items.Add(new BarItem{ Value=a.Qty });
+            modelSize.Series.Add(bsSize);
+            _plotSize.Model = modelSize;
+
+            // 3) 颜色销量（降序）
+            var colorAgg = cleaned.GroupBy(x=>x.Color).Select(g=> new { Key=g.Key, Qty=g.Sum(z=>z.Qty)})
+                                  .Where(a=>!string.IsNullOrWhiteSpace(a.Key) && a.Qty!=0)
+                                  .OrderByDescending(a=>a.Qty).ToList();
+
+            var modelColor = new PlotModel { Title = "颜色销量", PlotMargins = new OxyThickness(80,6,6,6) };
+            var colorCat = new CategoryAxis{ Position=AxisPosition.Left, GapWidth=0.4, StartPosition=1, EndPosition=0 };
+            foreach(var a in colorAgg) colorCat.Labels.Add(a.Key);
+            modelColor.Axes.Add(colorCat);
+            modelColor.Axes.Add(new LinearAxis{ Position = AxisPosition.Bottom, MinimumPadding=0, AbsoluteMinimum=0 });
+            var bsColor = new BarSeries
+            {
+                LabelFormatString = "{0}",
+                LabelPlacement = LabelPlacement.Inside,
+                LabelMargin = 6
+            };
+            foreach(var a in colorAgg) bsColor.Items.Add(new BarItem{ Value=a.Qty });
+            modelColor.Series.Add(bsColor);
+            _plotColor.Model = modelColor;
         }
 
         private void ApplyFilter(string q)
         {
-{
-    q = (q ?? string.Empty).Trim();
-    if (string.IsNullOrWhiteSpace(q))
-    {
-        _binding.DataSource = new BindingList<object>(_gridMaster);
-        _grid.ClearSelection();
-        return;
-    }
-    string ToText(object x)
-    {
-        if (x == null) return string.Empty;
-        var t = x.GetType();
-        var vals = new List<string>();
-        foreach (var p in t.GetProperties())
-        {
-            try { vals.Add(p.GetValue(x)?.ToString() ?? string.Empty); } catch { }
-        }
-        return string.Join(" ", vals);
-    }
-    var filtered = UiSearch.FilterAllTokens(_gridMaster, ToText, q).Cast<object>().ToList();
-    _binding.DataSource = new BindingList<object>(filtered);
-    _grid.ClearSelection();
-}
-}
+            q = (q ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                _binding.DataSource = new BindingList<object>(_gridMaster);
+                _grid.ClearSelection();
+                return;
+            }
             var filtered = _gridMaster.Where(x=>{
                 var t=x.GetType();
                 string Get(string n)=> t.GetProperty(n)?.GetValue(x)?.ToString() ?? "";

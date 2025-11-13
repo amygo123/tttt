@@ -2,33 +2,47 @@ using System.Windows.Forms;
 
 namespace StyleWatcherWin
 {
+    /// <summary>
+    /// Shared DataGridView helpers to keep UI configuration consistent.
+    /// Non-breaking: currently unused; can be wired into specific grids gradually.
+    /// </summary>
     internal static class UiGrid
     {
-        public static void AutoSize(DataGridView grid)
-        {
-            if (grid == null) return;
-            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
-            grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
-        }
-
+        /// <summary>
+        /// Applies a set of sensible defaults for read-only analytics grids.
+        /// </summary>
         public static void Optimize(DataGridView grid)
         {
             if (grid == null) return;
-            grid.DoubleBuffered(true);
+
             grid.RowHeadersVisible = false;
             grid.AllowUserToAddRows = false;
             grid.AllowUserToDeleteRows = false;
+            grid.MultiSelect = false;
             grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
+            grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
+
+            grid.DoubleBuffered(true);
         }
     }
 
     internal static class DataGridViewExtensions
     {
+        /// <summary>
+        /// Enables double buffering on DataGridView to reduce flicker.
+        /// Uses reflection to set the protected DoubleBuffered property.
+        /// </summary>
         public static void DoubleBuffered(this DataGridView dgv, bool setting)
         {
-            var prop = typeof(DataGridView).GetProperty("DoubleBuffered",
+            if (dgv == null) return;
+
+            var prop = typeof(DataGridView).GetProperty(
+                "DoubleBuffered",
                 System.Reflection.BindingFlags.Instance |
                 System.Reflection.BindingFlags.NonPublic);
+
             prop?.SetValue(dgv, setting, null);
         }
     }

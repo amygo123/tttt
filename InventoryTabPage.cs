@@ -268,10 +268,18 @@ namespace StyleWatcherWin
 
         private void RenderBarsBySize(InvSnapshot snap, PlotView pv, string title)
         {
-            var data = snap.Rows.GroupBy(r => r.Size).Select(g => (Key: g.Key, Qty: (double)g.Sum(x => x.Available)));
-            pv.Model = UiCharts.BuildBarModel(data, title, topN: 10);
-            BindPanZoom(pv);
-        
+            var model = new PlotModel { Title = title };
+            var data = snap.Rows.GroupBy(r => r.Size)
+                                .Select(g => new { Key = g.Key, V = g.Sum(x => x.Available) })
+                                .OrderByDescending(x => x.V)
+                                .ToList();
+
+            var cat = new CategoryAxis
+            {
+                Position = AxisPosition.Left,
+                IsZoomEnabled = true,
+                IsPanEnabled = true,
+                StartPosition = 1, EndPosition = 0
             };
             foreach (var d in data) cat.Labels.Add(d.Key);
 

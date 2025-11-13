@@ -9,30 +9,42 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.IO;
 
-
 namespace StyleWatcherWin
 {
-    
+    public static class Formatter
+    {
+        public static string Prettify(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return raw;
+            var s = raw.Replace("\\n", "\n").Replace("\r\n", "\n");
+            var lines = s.Split('\n');
+            for (int i = 0; i < lines.Length; i++) lines[i] = lines[i].Trim();
+            s = string.Join("\n", lines);
+            s = System.Text.RegularExpressions.Regex.Replace(s, @"\n{3,}", "\n\n");
+            return s.Trim();
+        }
+    }
 
-    public partial class TrayApp : Form
+    public class TrayApp : Form
     {
         // --- Win32 ---
-        
-        
-        
-        
+        [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+        [DllImport("user32.dll")] static extern bool UnregisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+        [DllImport("user32.dll")] static extern short GetAsyncKeyState(int vKey);
+        [DllImport("user32.dll")] static extern void keybd_event(byte bVk, byte bScan, int dwFlags, int dwExtraInfo);
 
-        
-        
-        
-        
+        [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] static extern IntPtr GetFocus();
+        [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+        [DllImport("kernel32.dll")] static extern uint GetCurrentThreadId();
 
         // ✅ 补充：AttachThreadInput 的声明（修复 CS0103）
-        
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
 
-        
-        
-        
+        [DllImport("user32.dll", CharSet = CharSet.Auto)] static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll", CharSet = CharSet.Auto)] static extern IntPtr SendMessage(IntPtr hWnd, int msg, ref int wParam, ref int lParam);
+        [DllImport("user32.dll", CharSet = CharSet.Auto)] static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, StringBuilder lParam);
 
         const int WM_GETTEXTLENGTH = 0x000E;
         const int WM_GETTEXT = 0x000D;
@@ -308,9 +320,5 @@ namespace StyleWatcherWin
             if (vk == 0) vk = (uint)Keys.S;
             if (mod == 0) mod = MOD_ALT;
         }
-    
-        private static bool RegisterHotKey(IntPtr hWnd, int id, int fsModifiers, Keys vk) { return UiHotkeys.TryRegister(hWnd, id, fsModifiers, vk); }
-
-        private static bool UnregisterHotKey(IntPtr hWnd, int id) { return UiHotkeys.TryUnregister(hWnd, id); }
-}
+    }
 }

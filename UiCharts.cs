@@ -7,23 +7,68 @@ using OxyPlot.Series;
 
 namespace StyleWatcherWin
 {
+    /// <summary>
+    /// Shared chart helpers built on top of OxyPlot.
+    /// Non-breaking: currently unused; can be adopted incrementally.
+    /// </summary>
     internal static class UiCharts
     {
+        /// <summary>
+        /// Builds a simple horizontal bar chart from (label, value) data.
+        /// Optionally keeps only topN items by value (descending) if specified.
+        /// </summary>
         public static PlotModel BuildBarModel(IEnumerable<(string Key, double Qty)> data, string title, int? topN = null)
         {
-            var list = data.Where(a => !string.IsNullOrWhiteSpace(a.Key) && a.Qty != 0)
-                           .OrderByDescending(a => a.Qty)
-                           .ToList();
-            if (topN.HasValue) list = list.Take(topN.Value).ToList();
+            var source = data ?? Enumerable.Empty<(string Key, double Qty)>();
 
-            var model = new PlotModel { Title = title, PlotMargins = new OxyThickness(80,6,6,6) };
-            var cat = new CategoryAxis{ Position=AxisPosition.Left, GapWidth=0.4, StartPosition=1, EndPosition=0 };
-            foreach (var a in list) cat.Labels.Add(a.Key);
-            model.Axes.Add(cat);
-            model.Axes.Add(new LinearAxis { Position = AxisPosition.Bottom, MinimumPadding=0, AbsoluteMinimum=0 });
+            var items = source
+                .Where(d => !string.IsNullOrWhiteSpace(d.Key))
+                .OrderByDescending(d => d.Qty);
 
-            var series = new BarSeries { LabelFormatString = "{0}", LabelPlacement = LabelPlacement.Inside, LabelMargin = 6 };
-            foreach (var a in list) series.Items.Add(new BarItem { Value = a.Qty });
+            if (topN.HasValue && topN.Value > 0)
+                items = items.Take(topN.Value);
+
+            var list = items.ToList();
+
+            var model = new PlotModel
+            {
+                Title = title,
+                PlotMargins = new OxyThickness(80, 6, 6, 6)
+            };
+
+            var catAxis = new CategoryAxis
+            {
+                Position = AxisPosition.Left,
+                GapWidth = 0.4,
+                StartPosition = 1,
+                EndPosition = 0
+            };
+
+            foreach (var item in list)
+            {
+                catAxis.Labels.Add(item.Key);
+            }
+
+            model.Axes.Add(catAxis);
+            model.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                MinimumPadding = 0,
+                AbsoluteMinimum = 0
+            });
+
+            var series = new BarSeries
+            {
+                LabelFormatString = "{0}",
+                LabelPlacement = LabelPlacement.Inside,
+                LabelMargin = 6
+            };
+
+            foreach (var item in list)
+            {
+                series.Items.Add(new BarItem { Value = item.Qty });
+            }
+
             model.Series.Add(series);
             return model;
         }
