@@ -553,45 +553,15 @@ if (other > 0)
             modelTrend.Series.Add(line);
             _plotTrend.Model = modelTrend;
 
-            // 2) 尺码销量（降序）
-            var sizeAgg = cleaned.GroupBy(x=>x.Size).Select(g=> new { Key=g.Key, Qty=g.Sum(z=>z.Qty)})
-                                 .Where(a=>!string.IsNullOrWhiteSpace(a.Key) && a.Qty!=0)
-                                 .OrderByDescending(a=>a.Qty).ToList();
+            // 2) 尺码销量（降序，Top10 视角）
+            var sizeAggRaw = cleaned.GroupBy(x=>x.Size)
+                                     .Select(g=> (Key: g.Key, Qty: (double)g.Sum(z=>z.Qty)));
+            _plotSize.Model = UiCharts.BuildBarModel(sizeAggRaw, "尺码销量(Top10)", topN: 10);
 
-            var modelSize = new PlotModel { Title = "尺码销量", PlotMargins = new OxyThickness(80,6,6,6) };
-            var sizeCat = new CategoryAxis{ Position=AxisPosition.Left, GapWidth=0.4, StartPosition=1, EndPosition=0 };
-            foreach(var a in sizeAgg) sizeCat.Labels.Add(a.Key);
-            modelSize.Axes.Add(sizeCat);
-            modelSize.Axes.Add(new LinearAxis{ Position = AxisPosition.Bottom, MinimumPadding = 0, AbsoluteMinimum = 0 });
-            var bsSize = new BarSeries
-            {
-                LabelFormatString = "{0}",
-                LabelPlacement = LabelPlacement.Inside,
-                LabelMargin = 6
-            };
-            foreach(var a in sizeAgg) bsSize.Items.Add(new BarItem{ Value=a.Qty });
-            modelSize.Series.Add(bsSize);
-            _plotSize.Model = modelSize;
-
-            // 3) 颜色销量（降序）
-            var colorAgg = cleaned.GroupBy(x=>x.Color).Select(g=> new { Key=g.Key, Qty=g.Sum(z=>z.Qty)})
-                                  .Where(a=>!string.IsNullOrWhiteSpace(a.Key) && a.Qty!=0)
-                                  .OrderByDescending(a=>a.Qty).ToList();
-
-            var modelColor = new PlotModel { Title = "颜色销量", PlotMargins = new OxyThickness(80,6,6,6) };
-            var colorCat = new CategoryAxis{ Position=AxisPosition.Left, GapWidth=0.4, StartPosition=1, EndPosition=0 };
-            foreach(var a in colorAgg) colorCat.Labels.Add(a.Key);
-            modelColor.Axes.Add(colorCat);
-            modelColor.Axes.Add(new LinearAxis{ Position = AxisPosition.Bottom, MinimumPadding=0, AbsoluteMinimum=0 });
-            var bsColor = new BarSeries
-            {
-                LabelFormatString = "{0}",
-                LabelPlacement = LabelPlacement.Inside,
-                LabelMargin = 6
-            };
-            foreach(var a in colorAgg) bsColor.Items.Add(new BarItem{ Value=a.Qty });
-            modelColor.Series.Add(bsColor);
-            _plotColor.Model = modelColor;
+            // 3) 颜色销量（降序，Top10 视角）
+            var colorAggRaw = cleaned.GroupBy(x=>x.Color)
+                                      .Select(g=> (Key: g.Key, Qty: (double)g.Sum(z=>z.Qty)));
+            _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量(Top10)", topN: 10);
         }
 
         private void ApplyFilter(string q)
