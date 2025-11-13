@@ -487,17 +487,27 @@ namespace StyleWatcherWin
         private void ApplyWarehouseFilter(DataGridView grid, InvSnapshot snap, string key, (string? color, string? size)? sel)
         {
             IEnumerable<InvRow> q = snap.Rows;
-            var k = (key ?? "").Trim();
-            if (k.Length > 0)
+            var k = (key ?? string.Empty).Trim();
+
+            if (!string.IsNullOrWhiteSpace(k))
             {
-                q = q.Where(r => (r.Color?.IndexOf(k, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0
-                              || (r.Size?.IndexOf(k, StringComparison.OrdinalIgnoreCase) ?? -1) >= 0);
+                string ToText(InvRow r)
+                {
+                    // 仅用颜色+尺码参与搜索，保持与原意图一致
+                    var color = r.Color ?? string.Empty;
+                    var size = r.Size ?? string.Empty;
+                    return string.Concat(color, " ", size);
+                }
+
+                q = UiSearch.FilterAllTokens(q, ToText, k);
             }
+
             if (sel is { } ac)
             {
                 if (!string.IsNullOrEmpty(ac.color)) q = q.Where(r => r.Color == ac.color);
                 if (!string.IsNullOrEmpty(ac.size)) q = q.Where(r => r.Size == ac.size);
             }
+
             BindGrid(grid, q);
         }
 
