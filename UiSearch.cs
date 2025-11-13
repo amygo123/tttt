@@ -4,16 +4,8 @@ using System.Linq;
 
 namespace StyleWatcherWin
 {
-    /// <summary>
-    /// Shared search helpers for WinForms grids and collections.
-    /// </summary>
     internal static class UiSearch
     {
-        /// <summary>
-        /// Filters a sequence by splitting the query into tokens (space-separated)
-        /// and requiring that each token appears in the text representation of the item.
-        /// Returns the original sequence if the query is null/empty/whitespace.
-        /// </summary>
         public static IEnumerable<T> FilterAllTokens<T>(IEnumerable<T> source, Func<T, string> toText, string query)
         {
             if (source == null) return Array.Empty<T>();

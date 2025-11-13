@@ -40,11 +40,4 @@ namespace StyleWatcherWin
                     .ToDictionary(g => g.Key, g => g.Sum(x => x.Available));
         }
 
-        internal sealed class HeatmapContext
-        {
-            public List<string> Colors = new();
-            public List<string> Sizes = new();
-            public double[,] Data = new double[0, 0];
-        }
-
 }

@@ -7,15 +7,8 @@ using OxyPlot.Series;
 
 namespace StyleWatcherWin
 {
-    /// <summary>
-    /// Shared chart helpers built on top of OxyPlot.
-    /// </summary>
     internal static class UiCharts
     {
-        /// <summary>
-        /// Builds a simple horizontal bar chart from (label, value) data.
-        /// Optionally keeps only topN items by value (descending) if specified.
-        /// </summary>
         public static PlotModel BuildBarModel(IEnumerable<(string Key, double Qty)> data, string title, int? topN = null)
         {
             var source = data ?? Enumerable.Empty<(string Key, double Qty)>();
