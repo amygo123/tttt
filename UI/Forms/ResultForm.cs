@@ -1,35 +1,61 @@
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using ClosedXML.Excel;
-using OxyPlot;
-using OxyPlot.Axes;
-using OxyPlot.Series;
-using OxyPlot.WindowsForms;
-using System.Text.Json;
-
-namespace StyleWatcherWin
-{
-    static class UI
+static class UI
     {
-        public static readonly Font Title = new("Microsoft YaHei UI", 12, FontStyle.Bold);
-        public static readonly Font Body  = new("Microsoft YaHei UI", 10);
-        public static readonly Color HeaderBack = Color.FromArgb(245,247,250);
-        public static readonly Color CardBack   = Color.FromArgb(250,250,250);
-        public static readonly Color Text       = Color.FromArgb(47,47,47);
+        public static readonly Font Title      = new("Microsoft YaHei UI", 12, FontStyle.Bold);
+        public static readonly Font Subtitle   = new("Microsoft YaHei UI", 9,  FontStyle.Regular);
+        public static readonly Font Body       = new("Microsoft YaHei UI", 10, FontStyle.Regular);
+        public static readonly Font KpiValue   = new("Microsoft YaHei UI", 14, FontStyle.Bold);
+
+        public static readonly Color Background = Color.White;
+        public static readonly Color HeaderBack = Color.FromArgb(245, 247, 250);
+        public static readonly Color CardBack   = Color.FromArgb(250, 250, 250);
+        public static readonly Color CardBorder = Color.FromArgb(230, 232, 236);
+        public static readonly Color Text       = Color.FromArgb(47, 47, 47);
+        public static readonly Color MutedText  = Color.FromArgb(130, 136, 148);
+
         public static readonly Color ChipBack   = Color.FromArgb(235, 238, 244);
         public static readonly Color ChipBorder = Color.FromArgb(210, 214, 222);
+
+        public static readonly Color Accent       = Color.FromArgb(26, 127, 55);
+        public static readonly Color AccentLight  = Color.FromArgb(214, 239, 223);
+
         public static readonly Color Red        = Color.FromArgb(215, 58, 73);
         public static readonly Color Yellow     = Color.FromArgb(216, 160, 18);
         public static readonly Color Green      = Color.FromArgb(26, 127, 55);
+
+        public static void StylePrimary(Button b)
+        {
+            b.AutoSize = true;
+            b.Padding = new Padding(16, 6, 16, 6);
+            b.FlatStyle = FlatStyle.Flat;
+            b.FlatAppearance.BorderSize = 0;
+            b.BackColor = Accent;
+            b.ForeColor = Color.White;
+            b.Font = Body;
+        }
+
+        public static void StyleSecondary(Button b)
+        {
+            b.AutoSize = true;
+            b.Padding = new Padding(12, 6, 12, 6);
+            b.FlatStyle = FlatStyle.Flat;
+            b.FlatAppearance.BorderSize = 1;
+            b.FlatAppearance.BorderColor = CardBorder;
+            b.BackColor = CardBack;
+            b.ForeColor = Text;
+            b.Font = Body;
+        }
+
+        public static void StyleInput(TextBox t)
+        {
+            t.BorderStyle = BorderStyle.FixedSingle;
+            t.BackColor = UI.Background;
+            t.ForeColor = Text;
+            t.Font = Body;
+            t.Margin = new Padding(0, 2, 0, 2);
+        }
     }
 
-    public class ResultForm : Form
+public class ResultForm : Form
     {
         // 映射饼图切片 -> 仓库名（OxyPlot 2.1.0 的 PieSlice 无 Tag 属性）
         private readonly System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string> _warehouseSliceMap = new System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string>();
@@ -97,12 +123,12 @@ namespace StyleWatcherWin
             Height = Math.Max(900, _cfg.window.height);
             StartPosition = FormStartPosition.CenterScreen;
             TopMost = false;
-            BackColor = Color.White;
+            BackColor = UI.Background;
             KeyPreview = true;
             KeyDown += (s,e)=>{ if(e.KeyCode==Keys.Escape) Hide(); };
 
             var root = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=2,ColumnCount=1};
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 80));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             Controls.Add(root);
 
@@ -115,9 +141,10 @@ namespace StyleWatcherWin
             root.Controls.Add(content,0,1);
 
             _kpi.Dock = DockStyle.Fill;
-_kpi.FlowDirection = FlowDirection.LeftToRight;
-_kpi.WrapContents = true;
-_kpi.Padding = new Padding(12, 8, 12, 8);
+            _kpi.FlowDirection = FlowDirection.LeftToRight;
+            _kpi.WrapContents = true;
+            _kpi.Padding = new Padding(16, 8, 16, 8);
+            _kpi.BackColor = UI.Background;
 
 // KPI 顺序：缺码 KPI 放在最后
 _kpi.Controls.Add(MakeKpi(_kpiSales7, "近7日销量", "—"));
@@ -137,19 +164,29 @@ content.Controls.Add(_kpi, 0, 0);
             _searchDebounce.Tick += (s,e)=> { _searchDebounce.Stop(); ApplyFilter(_boxSearch.Text); };
         }
 
+        
         private Control BuildHeader()
         {
-            var head = new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=3,RowCount=1,Padding=new(12,10,12,6),BackColor=Color.FromArgb(245,247,250)};
-            head.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
+            var head = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 1,
+                Padding = new Padding(16, 10, 16, 8),
+                BackColor = UI.HeaderBack
+            };
+            head.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             head.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             head.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-            _input.MinimumSize = new Size(420,32);
-            _input.Height = 30;
+            _input.MinimumSize = new Size(420, 32);
+            _input.Height = 32;
+            _input.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+            UI.StyleInput(_input);
 
-            _btnQuery.Text="重新查询";
-            _btnQuery.AutoSize=true; _btnQuery.Padding=new Padding(10,6,10,6);
-            _btnQuery.Click += async (s,e)=>
+            _btnQuery.Text = "重新查询";
+            UI.StylePrimary(_btnQuery);
+            _btnQuery.Click += async (s, e) =>
             {
                 _btnQuery.Enabled = false;
                 try
@@ -189,64 +226,131 @@ content.Controls.Add(_kpi, 0, 0);
                 }
             };
 
-            _btnExport.Text="导出Excel";
-            _btnExport.AutoSize=true; _btnExport.Padding=new Padding(10,6,10,6);
-            _btnExport.Click += (s,e)=> ExportExcel();
+            _btnExport.Text = "导出Excel";
+            UI.StyleSecondary(_btnExport);
+            _btnExport.Click += (s, e) => ExportExcel();
 
-            head.Controls.Add(_input,0,0);
-            head.Controls.Add(_btnQuery,1,0);
-            head.Controls.Add(_btnExport,2,0);
+            head.Controls.Add(_input, 0, 0);
+            head.Controls.Add(_btnQuery, 1, 0);
+            head.Controls.Add(_btnExport, 2, 0);
             return head;
         }
 
-        private Control MakeKpi(Panel host,string title,string value)
-        {
-            host.Width=260; host.Height=110; host.Padding=new Padding(10);
-            host.BackColor=Color.FromArgb(250,250,250); host.BorderStyle=BorderStyle.FixedSingle;
-            host.Margin = new Padding(8,4,8,4);
 
-            var inner = new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2};
-            inner.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+        
+        private Control MakeKpi(Panel host, string title, string value)
+        {
+            host.Width = 260;
+            host.Height = 110;
+            host.Padding = new Padding(12);
+            host.BackColor = UI.CardBack;
+            host.Margin = new Padding(8, 4, 8, 4);
+            host.BorderStyle = BorderStyle.None;
+
+            host.Paint += (s, e) =>
+            {
+                var rect = host.ClientRectangle;
+                rect.Width -= 1;
+                rect.Height -= 1;
+                using var pen = new Pen(UI.CardBorder);
+                e.Graphics.DrawRectangle(pen, rect);
+            };
+
+            var inner = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            inner.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
             inner.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            var t = new Label { Text = title, Dock = DockStyle.Fill, Height = 26, Font = new Font("Microsoft YaHei UI", 10), TextAlign = ContentAlignment.MiddleLeft };
-            var v=new Label{Text=value,Dock=DockStyle.Fill,Font=new Font("Microsoft YaHei UI", 16, FontStyle.Bold),TextAlign=ContentAlignment.MiddleLeft,Padding=new Padding(0,2,0,0)};
+            var t = new Label
+            {
+                Text = title,
+                Dock = DockStyle.Fill,
+                Height = 22,
+                Font = UI.Subtitle,
+                ForeColor = UI.MutedText,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            var v = new Label
+            {
+                Text = value,
+                Dock = DockStyle.Fill,
+                Font = UI.KpiValue,
+                ForeColor = UI.Text,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(0, 4, 0, 0),
+                AutoEllipsis = true
+            };
             v.Name = "ValueLabel";
 
-            inner.Controls.Add(t,0,0);
-            inner.Controls.Add(v,0,1);
+            inner.Controls.Add(t, 0, 0);
+            inner.Controls.Add(v, 0, 1);
             host.Controls.Clear();
             host.Controls.Add(inner);
             return host;
         }
-private Control MakeKpiMissingChips(Panel host, string title)
-        {
-            host.Width=260; host.Height=110; host.Padding=new Padding(10);
-            host.BackColor=Color.FromArgb(250,250,250); host.BorderStyle=BorderStyle.FixedSingle;
-            host.Margin = new Padding(8,4,8,4);
 
-            var inner = new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=2};
-            inner.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+
+        private Control MakeKpiMissingChips(Panel host, string title)
+        {
+            host.Width = 260;
+            host.Height = 110;
+            host.Padding = new Padding(12);
+            host.BackColor = UI.CardBack;
+            host.Margin = new Padding(8, 4, 8, 4);
+            host.BorderStyle = BorderStyle.None;
+
+            host.Paint += (s, e) =>
+            {
+                var rect = host.ClientRectangle;
+                rect.Width -= 1;
+                rect.Height -= 1;
+                using var pen = new Pen(UI.CardBorder);
+                e.Graphics.DrawRectangle(pen, rect);
+            };
+
+            var inner = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            inner.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
             inner.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            var t = new Label { Text = title, Dock = DockStyle.Fill, Height = 26, Font = new Font("Microsoft YaHei UI", 10), TextAlign = ContentAlignment.MiddleLeft };
+            var t = new Label
+            {
+                Text = title,
+                Dock = DockStyle.Fill,
+                Height = 22,
+                Font = UI.Subtitle,
+                ForeColor = UI.MutedText,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
 
-            var flow = new FlowLayoutPanel{
+            var flow = new FlowLayoutPanel
+            {
                 Dock = DockStyle.Fill,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = true,
                 AutoScroll = true,
                 Padding = new Padding(0),
-                Margin = new Padding(0)
+                Margin = new Padding(0),
+                BackColor = UI.CardBack
             };
             _kpiMissingFlow = flow;
 
-            inner.Controls.Add(t,0,0);
-            inner.Controls.Add(flow,0,1);
+            inner.Controls.Add(t, 0, 0);
+            inner.Controls.Add(flow, 0, 1);
             host.Controls.Clear();
             host.Controls.Add(inner);
             return host;
         }
+
 
         private void SetMissingSizes(IEnumerable<string> sizes)
         {
@@ -261,8 +365,8 @@ private Control MakeKpiMissingChips(Panel host, string title)
                     AutoSize = true,
                     Text = s,
                     Font = new Font("Microsoft YaHei UI", 8.5f, FontStyle.Regular),
-                    BackColor = Color.FromArgb(235, 238, 244),
-                    ForeColor = Color.FromArgb(47,47,47),
+                    BackColor = UI.ChipBack,
+                    ForeColor = UI.Text,
                     Padding = new Padding(6, 2, 6, 2),
                     Margin = new Padding(4, 2, 0, 2),
                     BorderStyle = BorderStyle.FixedSingle
@@ -288,7 +392,7 @@ private Control MakeKpiMissingChips(Panel host, string title)
         private void BuildTabs()
         {
             // 概览
-            var overview = new TabPage("概览"){BackColor=Color.White};
+            var overview = new TabPage("概览") { BackColor = UI.Background };
 
             var container = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=2,ColumnCount=1};
             container.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
@@ -1132,56 +1236,54 @@ private double GetVipNumber(Dictionary<string, object?> row, params string[] key
 /// 多关键词 AND 搜索（空格/逗号/加号等拆分），在整行文本上匹配。
 /// 不重新请求接口，仅针对本地缓存数据过滤。
 /// </summary>
-private void ApplyVipFilter(string? keyword)
-{
-    if (_vipAll == null || _vipAll.Count == 0)
-    {
-        _vipView = new List<Dictionary<string, object?>>();
-    }
-    else
-    {
-        if (string.IsNullOrWhiteSpace(keyword))
-        {
-            _vipView = _vipAll.ToList();
-        }
-        else
-        {
-            var parts = keyword
-                .Split(new[] { ' ', '　', ',', '，', '+', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(p => p.Trim())
-                .Where(p => p.Length > 0)
-                .Select(p => p.ToLowerInvariant())
-                .ToArray();
 
-            if (parts.Length == 0)
+        private void ApplyVipFilter(string? keyword)
+        {
+            if (_vipAll == null || _vipAll.Count == 0)
             {
-                _vipView = _vipAll.ToList();
+                _vipView = new List<Dictionary<string, object?>>();
             }
             else
             {
-                _vipView = _vipAll
-                    .Where(row =>
+                if (string.IsNullOrWhiteSpace(keyword))
+                {
+                    _vipView = _vipAll.ToList();
+                }
+                else
+                {
+                    var parts = keyword
+                        .Split(new[] { ' ', '　', ',', '，', '+', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(p => p.ToLowerInvariant())
+                        .ToArray();
+
+                    if (parts.Length == 0)
                     {
-                        if (row == null) return false;
+                        _vipView = _vipAll.ToList();
+                    }
+                    else
+                    {
+                        _vipView = _vipAll
+                            .Where(row =>
+                            {
+                                if (row == null) return false;
 
-                        var text = string.Join(" ", row.Values
-                            .Select(v => v?.ToString() ?? string.Empty))
-                            .ToLowerInvariant();
+                                var text = string.Join(" ", row.Values
+                                    .Select(v => v?.ToString() ?? string.Empty))
+                                    .ToLowerInvariant();
 
-                        return parts.All(p => text.Contains(p));
-                    })
-                    .ToList();
+                                return parts.All(p => text.Contains(p));
+                            })
+                            .ToList();
+                    }
+                }
             }
-        }
-    }
 
-    BuildVipColumnsAndBind();
-    _vipGrid.Invalidate();
-}
+            BuildVipColumnsAndBind();
+            _vipGrid.Invalidate();
+        }
 /* end: filter */
 
 // ===== 结束 =====
 // === VIP INTEGRATION END ===
 }
 
-}
