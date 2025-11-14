@@ -128,6 +128,23 @@ namespace StyleWatcherWin
         }
 
         public Task LoadInventoryAsync(string styleName) => LoadAsync(styleName); // 兼容 ResultForm 旧调用
+        
+
+        /// <summary>
+        /// 清空当前库存视图（用于主查询没有解析出任何款式时，将库存页重置为“无数据”状态）。
+        /// </summary>
+        public void ResetToEmpty()
+        {
+            _styleName = string.Empty;
+            _activeCell = null;
+            var snap = new InvSnapshot();
+            _all = snap;
+
+            RenderAll(_all);
+            _lblAvail.Text = "可用合计：0（未获取到库存数据）";
+            _lblOnHand.Text = "现有合计：0（未获取到库存数据）";
+        }
+
         #endregion
 
         private async Task ReloadAsync(string styleName)

@@ -8,26 +8,6 @@ using System.Text.Json.Serialization;
 
 namespace StyleWatcherWin
 {
-
-    public class ApiResult<T>
-    {
-        public bool Success { get; set; }
-        public string? ErrorMessage { get; set; }
-        public T? Data { get; set; }
-
-        public static ApiResult<T> Ok(T data) => new ApiResult<T>
-        {
-            Success = true,
-            Data = data
-        };
-
-        public static ApiResult<T> Fail(string? errorMessage) => new ApiResult<T>
-        {
-            Success = false,
-            ErrorMessage = errorMessage
-        };
-    }
-
     public class AppConfig
     {
         public string api_url { get; set; } = "http://47.111.189.27:8089/qrcode/saleVolumeParser";
@@ -121,40 +101,10 @@ namespace StyleWatcherWin
 
     public static class ApiHelper
     {
-
-        private static string BuildFriendlyErrorMessage(Exception ex, string url, int timeoutSeconds, string scene)
+        public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text)
         {
-            // HTTP 请求类异常
-            if (ex is HttpRequestException)
-            {
-                var host = string.Empty;
-                try
-                {
-                    host = new Uri(url).Host;
-                }
-                catch
-                {
-                    host = url;
-                }
-                return $"网络 / 连接错误（场景：{scene}），请检查网络或服务器地址：{host}";
-            }
-
-            // 超时（通常是 TaskCanceledException / OperationCanceledException）
-            if (ex is System.Threading.Tasks.TaskCanceledException || ex is OperationCanceledException)
-            {
-                if (timeoutSeconds <= 0) timeoutSeconds = 1;
-                return $"请求超时（场景：{scene}），当前超时时间为 {timeoutSeconds} 秒，可在配置中进行调整。";
-            }
-
-            // 其他异常：保留原始消息，方便排查
-            return $"调用接口出现异常（场景：{scene}）：{ex.Message}";
-        }
-
-
-        public static async System.Threading.Tasks.Task<ApiResult<string>> QueryAsync(AppConfig cfg, string text)
-        {
-            if (cfg == null) return ApiResult<string>.Fail("配置为空");
-            if (string.IsNullOrWhiteSpace(cfg.api_url)) return ApiResult<string>.Fail("未配置 api_url");
+            if (cfg == null) return "请求失败：配置为空";
+            if (string.IsNullOrWhiteSpace(cfg.api_url)) return "请求失败：未配置 api_url";
 
             var method = string.IsNullOrWhiteSpace(cfg.method) ? "POST" : cfg.method.ToUpperInvariant();
 
@@ -199,14 +149,12 @@ namespace StyleWatcherWin
             {
                 var resp = await http.SendAsync(request);
                 resp.EnsureSuccessStatusCode();
-                var content = await resp.Content.ReadAsStringAsync();
-                return ApiResult<string>.Ok(content);
+                return await resp.Content.ReadAsStringAsync();
             }
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                var friendly = BuildFriendlyErrorMessage(ex, url, cfg?.timeout_seconds ?? 6, "款式价格接口");
-                return ApiResult<string>.Fail(friendly);
+                return "请求失败：" + ex.Message;
             }
         }
 
@@ -248,14 +196,14 @@ namespace StyleWatcherWin
             }
         }
 
-        public static async System.Threading.Tasks.Task<ApiResult<string>> QueryStyleInfoAsync(AppConfig cfg, string styleName)
+        public static async System.Threading.Tasks.Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
         {
             if (cfg == null || cfg.inventory == null)
-                return ApiResult<string>.Fail("未配置库存接口");
+                return "";
 
             var baseUrl = cfg.inventory.price_url_base;
             if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
-                return ApiResult<string>.Fail("未配置价格接口或款号为空");
+                return "";
 
             var url = baseUrl + Uri.EscapeDataString(styleName);
 
@@ -268,14 +216,12 @@ namespace StyleWatcherWin
             {
                 var resp = await http.GetAsync(url);
                 resp.EnsureSuccessStatusCode();
-                var content = await resp.Content.ReadAsStringAsync();
-                return ApiResult<string>.Ok(content);
+                return await resp.Content.ReadAsStringAsync();
             }
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                var friendly = BuildFriendlyErrorMessage(ex, url, cfg?.timeout_seconds ?? 6, "款式价格接口");
-                return ApiResult<string>.Fail(friendly);
+                return "";
             }
         }
     }

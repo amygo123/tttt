@@ -6,7 +6,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Net.Http;
 using ClosedXML.Excel;
 using OxyPlot;
 using OxyPlot.Axes;
@@ -163,17 +162,14 @@ content.Controls.Add(_kpi, 0, 0);
                     }
 
                     SetLoading("查询中...");
-                    var apiResult = await ApiHelper.QueryAsync(_cfg, txt);
-                    if (!apiResult.Success || string.IsNullOrWhiteSpace(apiResult.Data))
+                    string raw = await ApiHelper.QueryAsync(_cfg, txt);
+                    if (string.IsNullOrWhiteSpace(raw))
                     {
-                        var error = string.IsNullOrWhiteSpace(apiResult.ErrorMessage)
-                            ? "接口未返回任何内容"
-                            : apiResult.ErrorMessage;
-                        SetLoading(error);
+                        SetLoading("接口未返回任何内容");
                         return;
                     }
 
-                    string result = Formatter.Prettify(apiResult.Data);
+                    string result = Formatter.Prettify(raw);
                     if (string.IsNullOrWhiteSpace(result))
                     {
                         SetLoading("未解析到任何结果");
@@ -406,18 +402,15 @@ private Control MakeKpiMissingChips(Panel host, string title)
         public void ShowAndFocusCentered(bool alwaysOnTop){ TopMost=false; StartPosition=FormStartPosition.CenterScreen; Show(); Activate(); FocusInput(); }
         public void SetLoading(string message)
 {
-    this.SafeInvoke(() =>
-    {
-        _status.Text = message ?? string.Empty;
+    _status.Text = message ?? string.Empty;
 
-        SetKpiValue(_kpiSales7, "—");
-        SetKpiValue(_kpiInv, "—");
-        SetKpiValue(_kpiDoc, "—");
-        SetKpiValue(_kpiGrade, "—");
-        SetKpiValue(_kpiMinPrice, "—");
-        SetKpiValue(_kpiBreakeven, "—");
-        SetMissingSizes(Array.Empty<string>());
-    });
+    SetKpiValue(_kpiSales7, "—");
+    SetKpiValue(_kpiInv, "—");
+    SetKpiValue(_kpiDoc, "—");
+    SetKpiValue(_kpiGrade, "—");
+    SetKpiValue(_kpiMinPrice, "—");
+    SetKpiValue(_kpiBreakeven, "—");
+    SetMissingSizes(Array.Empty<string>());
 }
 
         public async System.Threading.Tasks.Task ApplyRawTextAsync(string selection, string parsed)
@@ -485,6 +478,16 @@ if (!string.IsNullOrWhiteSpace(styleName))
             {
                 try { _ = _invPage?.LoadInventoryAsync(styleName); } catch {}
                 try { _ = LoadPriceAsync(styleName); } catch {}
+            }
+            else
+            {
+                // 没有解析出任何款式名称：销售为空或数据格式异常
+                // 将库存页和价格 KPI 一并重置为“无数据”状态，避免残留上一笔查询的结果。
+                try { _invPage?.ResetToEmpty(); } catch {}
+                try { _ = LoadPriceAsync(string.Empty); } catch {}
+
+                // 同时给出明确提示，说明当前查询没有销售明细。
+                SetLoading("未解析到任何销售明细记录，库存与价格信息已清空。");
             }
         }
 
@@ -892,24 +895,7 @@ private async Task ForceReloadVipInventoryAsync()
         };
         BuildVipColumnsAndBind();
         _vipLoaded = false;
-
-        // 根据异常类型给出更友好的错误提示
-        if (ex is HttpRequestException)
-        {
-            _vipStatus.Text = "唯品库存接口网络错误，请检查网络或服务器地址。";
-        }
-        else if (ex is TaskCanceledException || ex is OperationCanceledException)
-        {
-            _vipStatus.Text = "唯品库存请求超时，请稍后重试或在配置中适当增加超时时间。";
-        }
-        else if (ex is JsonException)
-        {
-            _vipStatus.Text = "唯品库存返回数据格式异常，接口返回结构可能已变更。";
-        }
-        else
-        {
-            _vipStatus.Text = "唯品库存加载失败：" + ex.Message;
-        }
+        _vipStatus.Text = "加载失败";
     }
     finally
     {
