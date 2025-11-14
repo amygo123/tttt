@@ -58,48 +58,96 @@ namespace StyleWatcherWin
             public int minSalesWindowDays { get; set; } = 7;
         }
 
-        public static string ConfigPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+        private static string GetConfigFolder()
+{
+    try
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrWhiteSpace(appData))
+        {
+            var folder = Path.Combine(appData, "StyleWatcherWin");
+            Directory.CreateDirectory(folder);
+            return folder;
+        }
+    }
+    catch
+    {
+        // ignore and fall back
+    }
 
-        public static AppConfig Load()
+    // 退回到程序目录（可能会遇到无写权限，但后续 Save 会再处理异常）
+    return AppDomain.CurrentDomain.BaseDirectory;
+}
+
+public static string ConfigPath => Path.Combine(GetConfigFolder(), "appsettings.json");
+
+private static string LegacyConfigPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
+
+public static AppConfig Load()
+{
+    try
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true
+        };
+
+        // 1. 优先使用新路径；如果不存在，则尝试从旧路径迁移
+        if (!File.Exists(ConfigPath))
         {
             try
             {
-                if (!File.Exists(ConfigPath))
+                if (File.Exists(LegacyConfigPath))
                 {
-                    var def = new AppConfig();
-                    var jsonNew = JsonSerializer.Serialize(def, new JsonSerializerOptions { WriteIndented = true });
-                    File.WriteAllText(ConfigPath, jsonNew, Encoding.UTF8);
-                    return def;
+                    var legacyTxt = File.ReadAllText(LegacyConfigPath, Encoding.UTF8);
+                    var legacyCfg = JsonSerializer.Deserialize<AppConfig>(legacyTxt, options) ?? new AppConfig();
+                    Save(legacyCfg); // 写入新路径
+                    return legacyCfg;
                 }
-
-                var txt = File.ReadAllText(ConfigPath, Encoding.UTF8);
-                var options = new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    ReadCommentHandling = JsonCommentHandling.Skip,
-                    AllowTrailingCommas = true
-                };
-                var cfg = JsonSerializer.Deserialize<AppConfig>(txt, options);
-                return cfg ?? new AppConfig();
             }
-            catch (Exception ex)
+            catch (Exception exLegacy)
             {
-                AppLogger.LogError(ex, "App/Config.cs");
-                return new AppConfig();
+                AppLogger.LogError(exLegacy, "App/Config.cs");
             }
+
+            var def = new AppConfig();
+            var jsonNew = JsonSerializer.Serialize(def, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(ConfigPath, jsonNew, Encoding.UTF8);
+            return def;
         }
 
-        public static void Save(AppConfig cfg)
-        {
-            var json = JsonSerializer.Serialize(cfg ?? new AppConfig(), new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-            File.WriteAllText(ConfigPath, json, Encoding.UTF8);
-        }
+        // 2. 正常从新路径读取
+        var txt = File.ReadAllText(ConfigPath, Encoding.UTF8);
+        var cfg = JsonSerializer.Deserialize<AppConfig>(txt, options);
+        return cfg ?? new AppConfig();
     }
+    catch (Exception ex)
+    {
+        AppLogger.LogError(ex, "App/Config.cs");
+        return new AppConfig();
+    }
+}
 
-    public static class ApiHelper
+public static void Save(AppConfig cfg)
+{
+    try
+    {
+        var json = JsonSerializer.Serialize(cfg ?? new AppConfig(), new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        File.WriteAllText(ConfigPath, json, Encoding.UTF8);
+    }
+    catch (Exception ex)
+    {
+        // 写入失败（例如无权限）时记录日志，但避免抛异常影响主流程
+        AppLogger.LogError(ex, "App/Config.cs");
+    }
+}
+
+public static class ApiHelper
     {
         public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text)
         {
@@ -225,4 +273,5 @@ namespace StyleWatcherWin
             }
         }
     }
+}
 }
