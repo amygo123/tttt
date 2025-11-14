@@ -365,7 +365,7 @@ namespace StyleWatcherWin
         // 选区（Win32）+ 剪贴板兜底
 
         
-        private string? TryGetSelectedTextUsingWin32()
+                private string? TryGetSelectedTextUsingWin32()
         {
             try
             {
@@ -406,8 +406,10 @@ namespace StyleWatcherWin
                 AppLogger.LogError(ex, "App/TrayApp.cs");
                 return null;
             }
-        }
 
+            // 正常走到这里说明上面的条件都没触发返回
+            return null;
+        }
 
         private async Task<string> GetSelectionByClipboardRoundTripAsync()
 
@@ -541,7 +543,7 @@ namespace StyleWatcherWin
 
 
 
-                w.ApplyRawText(txt, result);
+                await w.ApplyRawTextAsync(txt, result);
 
             }
 

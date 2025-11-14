@@ -175,7 +175,7 @@ content.Controls.Add(_kpi, 0, 0);
                         return;
                     }
 
-                    ApplyRawText(txt, result);
+                    await ApplyRawTextAsync(txt, result);
                 }
                 catch (Exception ex)
                 {
