@@ -162,14 +162,17 @@ content.Controls.Add(_kpi, 0, 0);
                     }
 
                     SetLoading("查询中...");
-                    string raw = await ApiHelper.QueryAsync(_cfg, txt);
-                    if (string.IsNullOrWhiteSpace(raw))
+                    var apiResult = await ApiHelper.QueryAsync(_cfg, txt);
+                    if (!apiResult.Success || string.IsNullOrWhiteSpace(apiResult.Data))
                     {
-                        SetLoading("接口未返回任何内容");
+                        var error = string.IsNullOrWhiteSpace(apiResult.ErrorMessage)
+                            ? "接口未返回任何内容"
+                            : "接口请求失败：" + apiResult.ErrorMessage;
+                        SetLoading(error);
                         return;
                     }
 
-                    string result = Formatter.Prettify(raw);
+                    string result = Formatter.Prettify(apiResult.Data);
                     if (string.IsNullOrWhiteSpace(result))
                     {
                         SetLoading("未解析到任何结果");
@@ -402,15 +405,18 @@ private Control MakeKpiMissingChips(Panel host, string title)
         public void ShowAndFocusCentered(bool alwaysOnTop){ TopMost=false; StartPosition=FormStartPosition.CenterScreen; Show(); Activate(); FocusInput(); }
         public void SetLoading(string message)
 {
-    _status.Text = message ?? string.Empty;
+    this.SafeInvoke(() =>
+    {
+        _status.Text = message ?? string.Empty;
 
-    SetKpiValue(_kpiSales7, "—");
-    SetKpiValue(_kpiInv, "—");
-    SetKpiValue(_kpiDoc, "—");
-    SetKpiValue(_kpiGrade, "—");
-    SetKpiValue(_kpiMinPrice, "—");
-    SetKpiValue(_kpiBreakeven, "—");
-    SetMissingSizes(Array.Empty<string>());
+        SetKpiValue(_kpiSales7, "—");
+        SetKpiValue(_kpiInv, "—");
+        SetKpiValue(_kpiDoc, "—");
+        SetKpiValue(_kpiGrade, "—");
+        SetKpiValue(_kpiMinPrice, "—");
+        SetKpiValue(_kpiBreakeven, "—");
+        SetMissingSizes(Array.Empty<string>());
+    });
 }
 
         public async System.Threading.Tasks.Task ApplyRawTextAsync(string selection, string parsed)

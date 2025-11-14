@@ -515,21 +515,24 @@ namespace StyleWatcherWin
 
                 // 统一走 ApiHelper
 
-                string raw = await ApiHelper.QueryAsync(_cfg, txt);
+                var apiResult = await ApiHelper.QueryAsync(_cfg, txt);
 
-                if (string.IsNullOrWhiteSpace(raw))
+                if (!apiResult.Success || string.IsNullOrWhiteSpace(apiResult.Data))
 
                 {
 
-                    w.SetLoading("接口未返回任何内容");
+                    var error = string.IsNullOrWhiteSpace(apiResult.ErrorMessage)
+                        ? "接口未返回任何内容"
+                        : "接口请求失败：" + apiResult.ErrorMessage;
+                    w.SetLoading(error);
 
                     return;
 
                 }
 
+                
 
-
-                string result = Formatter.Prettify(raw);
+                string result = Formatter.Prettify(apiResult.Data);
 
                 if (string.IsNullOrWhiteSpace(result))
 

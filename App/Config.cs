@@ -8,6 +8,26 @@ using System.Text.Json.Serialization;
 
 namespace StyleWatcherWin
 {
+
+    public class ApiResult<T>
+    {
+        public bool Success { get; set; }
+        public string? ErrorMessage { get; set; }
+        public T? Data { get; set; }
+
+        public static ApiResult<T> Ok(T data) => new ApiResult<T>
+        {
+            Success = true,
+            Data = data
+        };
+
+        public static ApiResult<T> Fail(string? errorMessage) => new ApiResult<T>
+        {
+            Success = false,
+            ErrorMessage = errorMessage
+        };
+    }
+
     public class AppConfig
     {
         public string api_url { get; set; } = "http://47.111.189.27:8089/qrcode/saleVolumeParser";
@@ -58,101 +78,53 @@ namespace StyleWatcherWin
             public int minSalesWindowDays { get; set; } = 7;
         }
 
-        private static string GetConfigFolder()
-{
-    try
-    {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        if (!string.IsNullOrWhiteSpace(appData))
-        {
-            var folder = Path.Combine(appData, "StyleWatcherWin");
-            Directory.CreateDirectory(folder);
-            return folder;
-        }
-    }
-    catch
-    {
-        // ignore and fall back
-    }
+        public static string ConfigPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
 
-    // 退回到程序目录（可能会遇到无写权限，但后续 Save 会再处理异常）
-    return AppDomain.CurrentDomain.BaseDirectory;
-}
-
-public static string ConfigPath => Path.Combine(GetConfigFolder(), "appsettings.json");
-
-private static string LegacyConfigPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");
-
-public static AppConfig Load()
-{
-    try
-    {
-        var options = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            ReadCommentHandling = JsonCommentHandling.Skip,
-            AllowTrailingCommas = true
-        };
-
-        // 1. 优先使用新路径；如果不存在，则尝试从旧路径迁移
-        if (!File.Exists(ConfigPath))
+        public static AppConfig Load()
         {
             try
             {
-                if (File.Exists(LegacyConfigPath))
+                if (!File.Exists(ConfigPath))
                 {
-                    var legacyTxt = File.ReadAllText(LegacyConfigPath, Encoding.UTF8);
-                    var legacyCfg = JsonSerializer.Deserialize<AppConfig>(legacyTxt, options) ?? new AppConfig();
-                    Save(legacyCfg); // 写入新路径
-                    return legacyCfg;
+                    var def = new AppConfig();
+                    var jsonNew = JsonSerializer.Serialize(def, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(ConfigPath, jsonNew, Encoding.UTF8);
+                    return def;
                 }
-            }
-            catch (Exception exLegacy)
-            {
-                AppLogger.LogError(exLegacy, "App/Config.cs");
-            }
 
-            var def = new AppConfig();
-            var jsonNew = JsonSerializer.Serialize(def, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(ConfigPath, jsonNew, Encoding.UTF8);
-            return def;
+                var txt = File.ReadAllText(ConfigPath, Encoding.UTF8);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    ReadCommentHandling = JsonCommentHandling.Skip,
+                    AllowTrailingCommas = true
+                };
+                var cfg = JsonSerializer.Deserialize<AppConfig>(txt, options);
+                return cfg ?? new AppConfig();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError(ex, "App/Config.cs");
+                return new AppConfig();
+            }
         }
 
-        // 2. 正常从新路径读取
-        var txt = File.ReadAllText(ConfigPath, Encoding.UTF8);
-        var cfg = JsonSerializer.Deserialize<AppConfig>(txt, options);
-        return cfg ?? new AppConfig();
-    }
-    catch (Exception ex)
-    {
-        AppLogger.LogError(ex, "App/Config.cs");
-        return new AppConfig();
-    }
-}
-
-public static void Save(AppConfig cfg)
-{
-    try
-    {
-        var json = JsonSerializer.Serialize(cfg ?? new AppConfig(), new JsonSerializerOptions
+        public static void Save(AppConfig cfg)
         {
-            WriteIndented = true
-        });
-        File.WriteAllText(ConfigPath, json, Encoding.UTF8);
+            var json = JsonSerializer.Serialize(cfg ?? new AppConfig(), new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+            File.WriteAllText(ConfigPath, json, Encoding.UTF8);
+        }
     }
-    catch (Exception ex)
-    {
-        // 写入失败（例如无权限）时记录日志，但避免抛异常影响主流程
-        AppLogger.LogError(ex, "App/Config.cs");
-    }
-}
 
-public static class ApiHelper
+    public static class ApiHelper
     {
-        public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text)
+        public static async System.Threading.Tasks.Task<ApiResult<string>> QueryAsync(AppConfig cfg, string text)
         {
-            if (cfg == null) return "请求失败：配置为空";
-            if (string.IsNullOrWhiteSpace(cfg.api_url)) return "请求失败：未配置 api_url";
+            if (cfg == null) return ApiResult<string>.Fail("配置为空");
+            if (string.IsNullOrWhiteSpace(cfg.api_url)) return ApiResult<string>.Fail("未配置 api_url");
 
             var method = string.IsNullOrWhiteSpace(cfg.method) ? "POST" : cfg.method.ToUpperInvariant();
 
@@ -197,12 +169,13 @@ public static class ApiHelper
             {
                 var resp = await http.SendAsync(request);
                 resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync();
+                var content = await resp.Content.ReadAsStringAsync();
+                return ApiResult<string>.Ok(content);
             }
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                return "请求失败：" + ex.Message;
+                return ApiResult<string>.Fail(ex.Message);
             }
         }
 
@@ -244,14 +217,14 @@ public static class ApiHelper
             }
         }
 
-        public static async System.Threading.Tasks.Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
+        public static async System.Threading.Tasks.Task<ApiResult<string>> QueryStyleInfoAsync(AppConfig cfg, string styleName)
         {
             if (cfg == null || cfg.inventory == null)
-                return "";
+                return ApiResult<string>.Fail("未配置库存接口");
 
             var baseUrl = cfg.inventory.price_url_base;
             if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
-                return "";
+                return ApiResult<string>.Fail("未配置价格接口或款号为空");
 
             var url = baseUrl + Uri.EscapeDataString(styleName);
 
@@ -264,14 +237,14 @@ public static class ApiHelper
             {
                 var resp = await http.GetAsync(url);
                 resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync();
+                var content = await resp.Content.ReadAsStringAsync();
+                return ApiResult<string>.Ok(content);
             }
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                return "";
+                return ApiResult<string>.Fail(ex.Message);
             }
         }
     }
-}
 }
