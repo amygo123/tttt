@@ -195,8 +195,9 @@ namespace StyleWatcherWin
                     });
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.LogError(ex, "UI/Forms/InventoryTabPage.cs");
                 // ignore
             }
             return s;
@@ -390,7 +391,7 @@ namespace StyleWatcherWin
                 ctl.BindMouseDown(OxyMouseButton.Right, PlotCommands.PanAt);
                 pv.Controller = ctl;
             }
-            catch { }
+            catch (Exception ex)
         }
 
         private void AttachHeatmapInteractions(PlotView pv, Action<(string? color, string? size)?> onSelectionChanged)
@@ -406,7 +407,7 @@ namespace StyleWatcherWin
                 ctl.BindMouseWheel(PlotCommands.ZoomWheel);
                 pv.Controller = ctl;
             }
-            catch { /* ignore */ }
+            catch (Exception ex)
 
             pv.MouseMove += (s, e) =>
             {

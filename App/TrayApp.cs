@@ -84,8 +84,9 @@ namespace StyleWatcherWin
                     _tray.Icon = File.Exists(icoPath) ? new Icon(icoPath) : SystemIcons.Application;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.LogError(ex, "App/TrayApp.cs");
                 _tray.Icon = SystemIcons.Application;
             }
             _tray.Visible = true;
@@ -216,7 +217,7 @@ namespace StyleWatcherWin
                     if (attached) AttachThreadInput(curThread, fgThread, false);
                 }
             }
-            catch { }
+            catch (Exception ex)
             return null;
         }
 
@@ -290,6 +291,7 @@ namespace StyleWatcherWin
             }
             catch (Exception ex)
             {
+                AppLogger.LogError(ex, "App/TrayApp.cs");
                 EnsureWindow();
                 var w = _window;
                 if (w != null) w.SetLoading($"错误：{ex.Message}");

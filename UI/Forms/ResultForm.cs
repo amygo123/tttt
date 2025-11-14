@@ -179,6 +179,7 @@ content.Controls.Add(_kpi, 0, 0);
                 }
                 catch (Exception ex)
                 {
+                    AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
                     SetLoading($"错误：{ex.Message}");
                 }
                 finally
@@ -411,8 +412,18 @@ private Control MakeKpiMissingChips(Panel host, string title)
     SetMissingSizes(Array.Empty<string>());
 }
 
-public async void ApplyRawText(string selection, string parsed){ _input.Text=selection??string.Empty; _lastDisplayText = parsed ?? string.Empty; await LoadTextAsync(parsed??string.Empty); }
-        public void ApplyRawText(string text){ _input.Text=text??string.Empty; }
+public 
+        public async System.Threading.Tasks.Task ApplyRawTextAsync(string selection, string parsed)
+        {
+            _input.Text = selection ?? string.Empty;
+            await LoadTextAsync(parsed ?? string.Empty);
+        }
+
+        public void ApplyRawText(string text)
+        {
+            _input.Text = text ?? string.Empty;
+        }
+
 
         public async Task LoadTextAsync(string raw)=>await ReloadAsync(raw);
         private async Task ReloadAsync()=>await ReloadAsync(_input.Text);
@@ -622,8 +633,9 @@ if (other > 0)
                     {
                         return t.GetProperty(n)?.GetValue(x)?.ToString() ?? string.Empty;
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
                         return string.Empty;
                     }
                 }
@@ -719,8 +731,9 @@ if (other > 0)
                     SetKpiValue(_kpiBreakeven, "—");
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
                 SetKpiValue(_kpiGrade, "—");
                 SetKpiValue(_kpiMinPrice, "—");
                 SetKpiValue(_kpiBreakeven, "—");
@@ -864,6 +877,7 @@ private async Task ForceReloadVipInventoryAsync()
     }
     catch (Exception ex)
     {
+        AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
         _vipAll.Clear();
         _vipView = new List<Dictionary<string, object?>>
         {

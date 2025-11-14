@@ -82,8 +82,9 @@ namespace StyleWatcherWin
                 var cfg = JsonSerializer.Deserialize<AppConfig>(txt, options);
                 return cfg ?? new AppConfig();
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.LogError(ex, "App/Config.cs");
                 return new AppConfig();
             }
         }
@@ -152,6 +153,7 @@ namespace StyleWatcherWin
             }
             catch (Exception ex)
             {
+                AppLogger.LogError(ex, "App/Config.cs");
                 return "请求失败：" + ex.Message;
             }
         }
@@ -189,6 +191,7 @@ namespace StyleWatcherWin
             }
             catch (Exception ex)
             {
+                AppLogger.LogError(ex, "App/Config.cs");
                 return "[] // 请求失败：" + ex.Message;
             }
         }
@@ -215,8 +218,9 @@ namespace StyleWatcherWin
                 resp.EnsureSuccessStatusCode();
                 return await resp.Content.ReadAsStringAsync();
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.LogError(ex, "App/Config.cs");
                 return "";
             }
         }

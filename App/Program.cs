@@ -46,8 +46,9 @@ namespace StyleWatcherWin
                         if (useCtrl)  keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
                         if (useAlt)   keybd_event(VK_MENU,    0, KEYEVENTF_KEYUP, 0);
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        AppLogger.LogError(ex, "App/Program.cs");
                         // 即便失败，也不要启动第二个实例
                     }
 
