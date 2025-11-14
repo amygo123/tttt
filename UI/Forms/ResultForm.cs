@@ -412,7 +412,6 @@ private Control MakeKpiMissingChips(Panel host, string title)
     SetMissingSizes(Array.Empty<string>());
 }
 
-public 
         public async System.Threading.Tasks.Task ApplyRawTextAsync(string selection, string parsed)
         {
             _input.Text = selection ?? string.Empty;
