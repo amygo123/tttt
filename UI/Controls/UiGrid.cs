@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace StyleWatcherWin
@@ -14,10 +15,58 @@ namespace StyleWatcherWin
             grid.MultiSelect = false;
             grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
 
-            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
-            grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
+            if (grid.AutoSizeColumnsMode == DataGridViewAutoSizeColumnsMode.NotSet)
+                grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
 
+            if (grid.AutoSizeRowsMode == DataGridViewAutoSizeRowsMode.None)
+                grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCells;
+
+            ApplyVisualStyle(grid);
             grid.DoubleBuffered(true);
+        }
+
+        public static void ApplyVisualStyle(DataGridView grid)
+        {
+            if (grid == null) return;
+
+            grid.BorderStyle = BorderStyle.None;
+            grid.BackgroundColor = UI.Background;
+            grid.EnableHeadersVisualStyles = false;
+
+            var header = grid.ColumnHeadersDefaultCellStyle;
+            header.BackColor = UI.HeaderBack;
+            header.ForeColor = UI.Text;
+            header.Font = UI.Body;
+            header.Alignment = DataGridViewContentAlignment.MiddleLeft;
+
+            grid.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            grid.ColumnHeadersHeight = 28;
+
+            var cell = grid.DefaultCellStyle;
+            cell.BackColor = UI.Background;
+            cell.ForeColor = UI.Text;
+            cell.SelectionBackColor = Color.FromArgb(230, 243, 232);
+            cell.SelectionForeColor = UI.Text;
+            cell.Font = UI.Body;
+            cell.WrapMode = DataGridViewTriState.False;
+
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
+
+            grid.GridColor = Color.FromArgb(235, 238, 244);
+            grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+            grid.RowTemplate.Height = 26;
+
+            foreach (DataGridViewColumn col in grid.Columns)
+            {
+                if (col.ValueType == typeof(int) ||
+                    col.ValueType == typeof(long) ||
+                    col.ValueType == typeof(float) ||
+                    col.ValueType == typeof(double) ||
+                    col.ValueType == typeof(decimal))
+                {
+                    col.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+                }
+            }
         }
     }
 

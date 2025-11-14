@@ -423,12 +423,19 @@ content.Controls.Add(_kpi, 0, 0);
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
             panel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
 
-            _boxSearch.Dock=DockStyle.Fill; _boxSearch.PlaceholderText="搜索（日期/款式/尺码/颜色/数量）";
-            _boxSearch.TextChanged += (s,e)=> { _searchDebounce.Stop(); _searchDebounce.Start(); };
-            panel.Controls.Add(_boxSearch,0,0);
+            _boxSearch.Dock = DockStyle.Fill;
+            _boxSearch.MinimumSize = new Size(0, 30);
+            _boxSearch.Margin = new Padding(0, 4, 0, 4);
+            _boxSearch.PlaceholderText = "搜索（日期/款式/尺码/颜色/数量）";
+            UI.StyleInput(_boxSearch);
+            _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
+            panel.Controls.Add(_boxSearch, 0, 0);
 
-            _filterChips.Dock = DockStyle.Fill; _filterChips.FlowDirection = FlowDirection.LeftToRight;
-            panel.Controls.Add(_filterChips,0,1);
+            _filterChips.Dock = DockStyle.Fill;
+            _filterChips.FlowDirection = FlowDirection.LeftToRight;
+            _filterChips.WrapContents = true;
+            _filterChips.Padding = new Padding(0, 0, 0, 4);
+            panel.Controls.Add(_filterChips, 0, 1);
 
             _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
             _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.AllCells;
@@ -1057,7 +1064,7 @@ private readonly Label _vipStatus = new()
 {
     AutoSize = true,
     Margin = new Padding(8, 8, 0, 0),
-    ForeColor = Color.FromArgb(120, 120, 120)
+    ForeColor = UI.MutedText
 };
 private readonly List<Dictionary<string, object?>> _vipAll = new();
 private List<Dictionary<string, object?>> _vipView = new();
@@ -1095,10 +1102,11 @@ private static readonly HttpClient _vipHttp = new();
             vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             
-            _vipSearchBox.Dock = DockStyle.Fill;
+                        _vipSearchBox.Dock = DockStyle.Fill;
             _vipSearchBox.MinimumSize = new Size(0, 30);
             _vipSearchBox.Margin = new Padding(0, 4, 0, 4);
             _vipSearchBox.PlaceholderText = "搜索（款式名/颜色/尺码等，空格分隔多条件）";
+            UI.StyleInput(_vipSearchBox);
             _vipSearchBox.TextChanged += (s, e) => { _vipSearchDebounce.Stop(); _vipSearchDebounce.Start(); };
             vipTop.Controls.Add(_vipSearchBox, 0, 0);
             
@@ -1111,6 +1119,7 @@ private static readonly HttpClient _vipHttp = new();
             
             vipLayout.Controls.Add(vipTop, 0, 0);
             vipLayout.Controls.Add(_vipGrid, 0, 1);
+            UiGrid.ApplyVisualStyle(_vipGrid);
             _vipInvTab.Controls.Add(vipLayout);
             _tabs.TabPages.Add(_vipInvTab);
             
