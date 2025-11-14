@@ -121,6 +121,36 @@ namespace StyleWatcherWin
 
     public static class ApiHelper
     {
+
+        private static string BuildFriendlyErrorMessage(Exception ex, string url, int timeoutSeconds, string scene)
+        {
+            // HTTP 请求类异常
+            if (ex is HttpRequestException)
+            {
+                var host = string.Empty;
+                try
+                {
+                    host = new Uri(url).Host;
+                }
+                catch
+                {
+                    host = url;
+                }
+                return $"网络 / 连接错误（场景：{scene}），请检查网络或服务器地址：{host}";
+            }
+
+            // 超时（通常是 TaskCanceledException / OperationCanceledException）
+            if (ex is System.Threading.Tasks.TaskCanceledException || ex is OperationCanceledException)
+            {
+                if (timeoutSeconds <= 0) timeoutSeconds = 1;
+                return $"请求超时（场景：{scene}），当前超时时间为 {timeoutSeconds} 秒，可在配置中进行调整。";
+            }
+
+            // 其他异常：保留原始消息，方便排查
+            return $"调用接口出现异常（场景：{scene}）：{ex.Message}";
+        }
+
+
         public static async System.Threading.Tasks.Task<ApiResult<string>> QueryAsync(AppConfig cfg, string text)
         {
             if (cfg == null) return ApiResult<string>.Fail("配置为空");
@@ -175,7 +205,8 @@ namespace StyleWatcherWin
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                return ApiResult<string>.Fail(ex.Message);
+                var friendly = BuildFriendlyErrorMessage(ex, url, cfg?.timeout_seconds ?? 6, "款式价格接口");
+                return ApiResult<string>.Fail(friendly);
             }
         }
 
@@ -243,7 +274,8 @@ namespace StyleWatcherWin
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                return ApiResult<string>.Fail(ex.Message);
+                var friendly = BuildFriendlyErrorMessage(ex, url, cfg?.timeout_seconds ?? 6, "款式价格接口");
+                return ApiResult<string>.Fail(friendly);
             }
         }
     }

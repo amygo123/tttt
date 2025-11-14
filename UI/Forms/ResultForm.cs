@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Net.Http;
 using ClosedXML.Excel;
 using OxyPlot;
 using OxyPlot.Axes;
@@ -167,7 +168,7 @@ content.Controls.Add(_kpi, 0, 0);
                     {
                         var error = string.IsNullOrWhiteSpace(apiResult.ErrorMessage)
                             ? "接口未返回任何内容"
-                            : "接口请求失败：" + apiResult.ErrorMessage;
+                            : apiResult.ErrorMessage;
                         SetLoading(error);
                         return;
                     }
@@ -891,7 +892,24 @@ private async Task ForceReloadVipInventoryAsync()
         };
         BuildVipColumnsAndBind();
         _vipLoaded = false;
-        _vipStatus.Text = "加载失败";
+
+        // 根据异常类型给出更友好的错误提示
+        if (ex is HttpRequestException)
+        {
+            _vipStatus.Text = "唯品库存接口网络错误，请检查网络或服务器地址。";
+        }
+        else if (ex is TaskCanceledException || ex is OperationCanceledException)
+        {
+            _vipStatus.Text = "唯品库存请求超时，请稍后重试或在配置中适当增加超时时间。";
+        }
+        else if (ex is JsonException)
+        {
+            _vipStatus.Text = "唯品库存返回数据格式异常，接口返回结构可能已变更。";
+        }
+        else
+        {
+            _vipStatus.Text = "唯品库存加载失败：" + ex.Message;
+        }
     }
     finally
     {

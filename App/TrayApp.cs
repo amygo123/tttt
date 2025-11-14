@@ -523,7 +523,7 @@ namespace StyleWatcherWin
 
                     var error = string.IsNullOrWhiteSpace(apiResult.ErrorMessage)
                         ? "接口未返回任何内容"
-                        : "接口请求失败：" + apiResult.ErrorMessage;
+                        : apiResult.ErrorMessage;
                     w.SetLoading(error);
 
                     return;
