@@ -54,6 +54,7 @@ namespace StyleWatcherWin
         public InventoryTabPage(AppConfig cfg)
         {
             _cfg = cfg;
+            _http.Timeout = TimeSpan.FromSeconds(Math.Max(1, _cfg.timeout_seconds));
             Text = "库存";
 
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };

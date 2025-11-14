@@ -89,6 +89,7 @@ namespace StyleWatcherWin
         public ResultForm(AppConfig cfg)
         {
             _cfg = cfg;
+            _vipHttp.Timeout = TimeSpan.FromSeconds(Math.Max(1, _cfg.timeout_seconds));
 
             Text = "StyleWatcher";
             Font = new Font("Microsoft YaHei UI", _cfg.window.fontSize);
