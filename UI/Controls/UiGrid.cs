@@ -15,7 +15,7 @@ namespace StyleWatcherWin
             grid.MultiSelect = false;
             grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
 
-            if (grid.AutoSizeColumnsMode == DataGridViewAutoSizeColumnsMode.NotSet)
+            if (grid.AutoSizeColumnsMode == DataGridViewAutoSizeColumnsMode.None)
                 grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
 
             if (grid.AutoSizeRowsMode == DataGridViewAutoSizeRowsMode.None)
