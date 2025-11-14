@@ -32,9 +32,9 @@ namespace StyleWatcherWin
         private string _styleName = "";
 
         // 主要图表
-        private readonly PlotView _pvHeat = new() { Dock = DockStyle.Fill, BackColor = Color.White };
-        private readonly PlotView _pvColor = new() { Dock = DockStyle.Fill, BackColor = Color.White };
-        private readonly PlotView _pvSize = new() { Dock = DockStyle.Fill, BackColor = Color.White };
+        private readonly PlotView _pvHeat = new() { Dock = DockStyle.Fill, BackColor = UI.Background };
+        private readonly PlotView _pvColor = new() { Dock = DockStyle.Fill, BackColor = UI.Background };
+        private readonly PlotView _pvSize = new() { Dock = DockStyle.Fill, BackColor = UI.Background };
 
         // 明细（总览右下）
         private readonly DataGridView _grid = new() { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells };
@@ -72,6 +72,7 @@ namespace StyleWatcherWin
             root.Controls.Add(_subTabs, 0, 2);
         }
 
+        
         private Control BuildTopTools()
         {
             var p = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1 };
@@ -80,8 +81,19 @@ namespace StyleWatcherWin
             p.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             p.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
 
-            _lblAvail = new Label { AutoSize = true, Font = new Font("Microsoft YaHei UI", 10, FontStyle.Bold) };
-            _lblOnHand = new Label { AutoSize = true, Font = new Font("Microsoft YaHei UI", 10, FontStyle.Bold), Margin = new Padding(16, 0, 0, 0) };
+            _lblAvail = new Label
+            {
+                AutoSize = true,
+                Font = UI.Body,
+                ForeColor = UI.Text
+            };
+            _lblOnHand = new Label
+            {
+                AutoSize = true,
+                Font = UI.Body,
+                ForeColor = UI.Text,
+                Margin = new Padding(16, 0, 0, 0)
+            };
 
             p.Controls.Add(_lblAvail, 0, 0);
             p.Controls.Add(_lblOnHand, 1, 0);
@@ -89,12 +101,15 @@ namespace StyleWatcherWin
             var filler = new Panel { Dock = DockStyle.Fill };
             p.Controls.Add(filler, 2, 0);
 
-            var btnReload = new Button { Text = "刷新", AutoSize = true, Padding = new Padding(10, 4, 10, 4), FlatStyle = FlatStyle.Flat };
+            var btnReload = new Button { Text = "刷新" };
+            UI.StyleSecondary(btnReload);
+            btnReload.Margin = new Padding(0, 0, 0, 0);
             btnReload.Click += async (s, e) => await ReloadAsync(_styleName);
             p.Controls.Add(btnReload, 3, 0);
 
             return p;
         }
+
 
         private Control BuildFourArea()
         {
@@ -163,8 +178,8 @@ namespace StyleWatcherWin
 
         private void RenderAll(InvSnapshot snap)
         {
-            _lblAvail.Text = $"可用合计：{snap.TotalAvailable}";
-            _lblOnHand.Text = $"现有合计：{snap.TotalOnHand}";
+            _lblAvail.Text = $"可用合计：{snap.TotalAvailable:N0}";
+            _lblOnHand.Text = $"现有合计：{snap.TotalOnHand:N0}";
 
             RenderHeatmap(snap, _pvHeat, "颜色×尺码 可用数热力图");
             RenderBarsByColor(snap, _pvColor, "颜色可用（降序，滚轮/右键查看更多）");
@@ -297,16 +312,25 @@ namespace StyleWatcherWin
                 root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
                 root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-                var search = new TextBox { Dock = DockStyle.Fill, PlaceholderText = "搜索本仓（颜色/尺码）" };
+                var search = new TextBox
+                {
+                    Dock = DockStyle.Fill,
+                    PlaceholderText = "搜索本仓（颜色/尺码）",
+                    MinimumSize = new Size(0, 28),
+                    Margin = new Padding(0, 4, 0, 4)
+                };
+                UI.StyleInput(search);
+
                 root.Controls.Add(search, 0, 0);
 
                 var panel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
                 panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
                 panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
-                var pv = new PlotView { Dock = DockStyle.Fill, BackColor = Color.White };
+                var pv = new PlotView { Dock = DockStyle.Fill, BackColor = UI.Background };
                 var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells };
                 PrepareGridColumns(grid);
+                UiGrid.Optimize(grid);
 
                 panel.Controls.Add(pv, 0, 0);
                 panel.Controls.Add(grid, 1, 0);

@@ -30,6 +30,12 @@ namespace StyleWatcherWin
                 PlotMargins = new OxyThickness(80, 6, 6, 6)
             };
 
+            // 统一柱状图主题
+            model.Background = OxyColors.White;
+            model.TextColor = OxyColor.FromRgb(47, 47, 47);
+            model.TitleColor = model.TextColor;
+            model.PlotAreaBorderThickness = new OxyThickness(0);
+
             var catAxis = new CategoryAxis
             {
                 Position = AxisPosition.Left,
@@ -43,13 +49,17 @@ namespace StyleWatcherWin
                 catAxis.Labels.Add(item.Key);
             }
 
-            model.Axes.Add(catAxis);
-            model.Axes.Add(new LinearAxis
+            var valueAxis = new LinearAxis
             {
                 Position = AxisPosition.Bottom,
                 MinimumPadding = 0,
-                AbsoluteMinimum = 0
-            });
+                AbsoluteMinimum = 0,
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.None
+            };
+
+            model.Axes.Add(catAxis);
+            model.Axes.Add(valueAxis);
 
             var series = new BarSeries
             {
