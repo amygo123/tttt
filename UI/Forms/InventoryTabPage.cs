@@ -379,7 +379,7 @@ namespace StyleWatcherWin
             BindGrid(grid, q);
         }
 
-        #region 交互：悬浮与联动 + 右键平移/滚轮缩放
+                #region 交互：悬浮与联动 + 右键平移/滚轮缩放
         private void BindPanZoom(PlotView pv)
         {
             try
@@ -392,6 +392,9 @@ namespace StyleWatcherWin
                 pv.Controller = ctl;
             }
             catch (Exception ex)
+            {
+                AppLogger.LogError(ex, "UI/Forms/InventoryTabPage.cs");
+            }
         }
 
         private void AttachHeatmapInteractions(PlotView pv, Action<(string? color, string? size)?> onSelectionChanged)
@@ -408,6 +411,10 @@ namespace StyleWatcherWin
                 pv.Controller = ctl;
             }
             catch (Exception ex)
+            {
+                AppLogger.LogError(ex, "UI/Forms/InventoryTabPage.cs");
+                // ignore
+            }
 
             pv.MouseMove += (s, e) =>
             {
@@ -420,7 +427,11 @@ namespace StyleWatcherWin
 
                 var sp = new ScreenPoint(e.Location.X, e.Location.Y);
                 var hit = hm.GetNearestPoint(sp, false);
-                if (hit == null) { _tip.Hide(pv); return; }
+                if (hit == null)
+                {
+                    _tip.Hide(pv);
+                    return;
+                }
 
                 var xi = (int)Math.Round(hit.DataPoint.X);
                 var yi = (int)Math.Round(hit.DataPoint.Y);
@@ -453,7 +464,6 @@ namespace StyleWatcherWin
 
                 var sp = new ScreenPoint(e.Location.X, e.Location.Y);
                 var hit = hm.GetNearestPoint(sp, false);
-
                 if (hit != null)
                 {
                     var xi = (int)Math.Round(hit.DataPoint.X);
