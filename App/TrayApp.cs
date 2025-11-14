@@ -517,6 +517,18 @@ namespace StyleWatcherWin
 
                 string raw = await ApiHelper.QueryAsync(_cfg, txt);
 
+                if (raw != null && raw.StartsWith("请求失败：", StringComparison.Ordinal))
+
+                {
+
+                    w.SetLoading(raw);
+
+                    return;
+
+                }
+
+
+
                 if (string.IsNullOrWhiteSpace(raw))
 
                 {

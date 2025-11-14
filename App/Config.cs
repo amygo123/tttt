@@ -154,8 +154,35 @@ namespace StyleWatcherWin
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                return "请求失败：" + ex.Message;
+                var friendly = BuildFriendlyErrorMessage(ex, url, cfg.timeout_seconds);
+                return "请求失败：" + friendly;
             }
+        }
+
+
+        private static string BuildFriendlyErrorMessage(Exception ex, string url, int timeoutSeconds)
+        {
+            if (ex is HttpRequestException)
+            {
+                string host;
+                try
+                {
+                    host = new Uri(url).Host;
+                }
+                catch
+                {
+                    host = url;
+                }
+                return $"网络 / 连接错误，请检查网络或服务器地址：{host}";
+            }
+
+            if (ex is System.Threading.Tasks.TaskCanceledException || ex is OperationCanceledException)
+            {
+                if (timeoutSeconds <= 0) timeoutSeconds = 1;
+                return $"请求超时（当前超时 {timeoutSeconds} 秒，可在配置中调整）";
+            }
+
+            return $"调用接口出现异常：{ex.Message}";
         }
 
         public static async System.Threading.Tasks.Task<string> QueryInventoryAsync(AppConfig cfg, string styleName)

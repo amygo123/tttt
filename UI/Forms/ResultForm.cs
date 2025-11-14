@@ -1,9 +1,27 @@
-static class UI
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
+using System.IO;
+using System.Net.Http;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using ClosedXML.Excel;
+using OxyPlot;
+using OxyPlot.Axes;
+using OxyPlot.Series;
+using OxyPlot.WindowsForms;
+using System.Text.Json;
+
+namespace StyleWatcherWin
+{
+    static class UI
     {
-        public static readonly Font Title      = new("Microsoft YaHei UI", 12, FontStyle.Bold);
-        public static readonly Font Subtitle   = new("Microsoft YaHei UI", 9,  FontStyle.Regular);
-        public static readonly Font Body       = new("Microsoft YaHei UI", 10, FontStyle.Regular);
-        public static readonly Font KpiValue   = new("Microsoft YaHei UI", 14, FontStyle.Bold);
+        public static readonly Font Title    = new("Microsoft YaHei UI", 12, FontStyle.Bold);
+        public static readonly Font Body     = new("Microsoft YaHei UI", 10);
+        public static readonly Font Subtitle = new("Microsoft YaHei UI", 9,  FontStyle.Regular);
+        public static readonly Font KpiValue = new("Microsoft YaHei UI", 14, FontStyle.Bold);
 
         public static readonly Color Background = Color.White;
         public static readonly Color HeaderBack = Color.FromArgb(245, 247, 250);
@@ -15,9 +33,6 @@ static class UI
         public static readonly Color ChipBack   = Color.FromArgb(235, 238, 244);
         public static readonly Color ChipBorder = Color.FromArgb(210, 214, 222);
 
-        public static readonly Color Accent       = Color.FromArgb(26, 127, 55);
-        public static readonly Color AccentLight  = Color.FromArgb(214, 239, 223);
-
         public static readonly Color Red        = Color.FromArgb(215, 58, 73);
         public static readonly Color Yellow     = Color.FromArgb(216, 160, 18);
         public static readonly Color Green      = Color.FromArgb(26, 127, 55);
@@ -28,7 +43,7 @@ static class UI
             b.Padding = new Padding(16, 6, 16, 6);
             b.FlatStyle = FlatStyle.Flat;
             b.FlatAppearance.BorderSize = 0;
-            b.BackColor = Accent;
+            b.BackColor = Green;
             b.ForeColor = Color.White;
             b.Font = Body;
         }
@@ -55,7 +70,7 @@ static class UI
         }
     }
 
-public class ResultForm : Form
+    public class ResultForm : Form
     {
         // 映射饼图切片 -> 仓库名（OxyPlot 2.1.0 的 PieSlice 无 Tag 属性）
         private readonly System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string> _warehouseSliceMap = new System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string>();
@@ -200,6 +215,13 @@ content.Controls.Add(_kpi, 0, 0);
 
                     SetLoading("查询中...");
                     string raw = await ApiHelper.QueryAsync(_cfg, txt);
+
+                    if (raw != null && raw.StartsWith("请求失败：", StringComparison.Ordinal))
+                    {
+                        SetLoading(raw);
+                        return;
+                    }
+
                     if (string.IsNullOrWhiteSpace(raw))
                     {
                         SetLoading("接口未返回任何内容");
@@ -992,20 +1014,42 @@ private async Task ForceReloadVipInventoryAsync()
     catch (Exception ex)
     {
         AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
+        var msg = GetVipErrorMessage(ex);
         _vipAll.Clear();
         _vipView = new List<Dictionary<string, object?>>
         {
-            new() { ["错误"] = ex.Message }
+            new() { ["错误"] = msg }
         };
         BuildVipColumnsAndBind();
         _vipLoaded = false;
-        _vipStatus.Text = "加载失败";
+        _vipStatus.Text = msg;
     }
     finally
     {
         _vipLoading = false;
     }
 }
+
+
+        private static string GetVipErrorMessage(Exception ex)
+        {
+            if (ex is HttpRequestException)
+            {
+                return "唯品库存接口网络 / 连接错误，请检查网络或服务器地址";
+            }
+
+            if (ex is System.Threading.Tasks.TaskCanceledException || ex is OperationCanceledException)
+            {
+                return "唯品库存接口请求超时，请稍后重试";
+            }
+
+            if (ex is JsonException)
+            {
+                return "唯品库存接口返回数据格式异常，接口可能已变更";
+            }
+
+            return "唯品库存加载失败：" + ex.Message;
+        }
 
 private async Task<List<Dictionary<string, object?>>> FetchVipInventoryAsync()
 {
@@ -1236,54 +1280,56 @@ private double GetVipNumber(Dictionary<string, object?> row, params string[] key
 /// 多关键词 AND 搜索（空格/逗号/加号等拆分），在整行文本上匹配。
 /// 不重新请求接口，仅针对本地缓存数据过滤。
 /// </summary>
-
-        private void ApplyVipFilter(string? keyword)
+private void ApplyVipFilter(string? keyword)
+{
+    if (_vipAll == null || _vipAll.Count == 0)
+    {
+        _vipView = new List<Dictionary<string, object?>>();
+    }
+    else
+    {
+        if (string.IsNullOrWhiteSpace(keyword))
         {
-            if (_vipAll == null || _vipAll.Count == 0)
+            _vipView = _vipAll.ToList();
+        }
+        else
+        {
+            var parts = keyword
+                .Split(new[] { ' ', '　', ',', '，', '+', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => p.Trim())
+                .Where(p => p.Length > 0)
+                .Select(p => p.ToLowerInvariant())
+                .ToArray();
+
+            if (parts.Length == 0)
             {
-                _vipView = new List<Dictionary<string, object?>>();
+                _vipView = _vipAll.ToList();
             }
             else
             {
-                if (string.IsNullOrWhiteSpace(keyword))
-                {
-                    _vipView = _vipAll.ToList();
-                }
-                else
-                {
-                    var parts = keyword
-                        .Split(new[] { ' ', '　', ',', '，', '+', ';' }, StringSplitOptions.RemoveEmptyEntries)
-                        .Select(p => p.ToLowerInvariant())
-                        .ToArray();
-
-                    if (parts.Length == 0)
+                _vipView = _vipAll
+                    .Where(row =>
                     {
-                        _vipView = _vipAll.ToList();
-                    }
-                    else
-                    {
-                        _vipView = _vipAll
-                            .Where(row =>
-                            {
-                                if (row == null) return false;
+                        if (row == null) return false;
 
-                                var text = string.Join(" ", row.Values
-                                    .Select(v => v?.ToString() ?? string.Empty))
-                                    .ToLowerInvariant();
+                        var text = string.Join(" ", row.Values
+                            .Select(v => v?.ToString() ?? string.Empty))
+                            .ToLowerInvariant();
 
-                                return parts.All(p => text.Contains(p));
-                            })
-                            .ToList();
-                    }
-                }
+                        return parts.All(p => text.Contains(p));
+                    })
+                    .ToList();
             }
-
-            BuildVipColumnsAndBind();
-            _vipGrid.Invalidate();
         }
+    }
+
+    BuildVipColumnsAndBind();
+    _vipGrid.Invalidate();
+}
 /* end: filter */
 
 // ===== 结束 =====
 // === VIP INTEGRATION END ===
 }
 
+}
