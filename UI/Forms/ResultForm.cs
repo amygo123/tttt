@@ -413,66 +413,11 @@ content.Controls.Add(_kpi, 0, 0);
 
         private void BuildTabs()
         {
-            // 概览
-            var overview = new TabPage("概览") { BackColor = UI.Background };
+                        // 概览
+            BuildOverviewTab();
 
-            var container = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=2,ColumnCount=1};
-            container.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
-            container.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            // 顶部工具区：从配置读取 trendWindows
-            var tools = new FlowLayoutPanel{Dock=DockStyle.Fill, AutoSize=true, WrapContents=false, AutoScroll=true, Padding=new Padding(12,10,12,0)};
-            _trendSwitch.FlowDirection=FlowDirection.LeftToRight;
-            _trendSwitch.WrapContents=false;
-            _trendSwitch.AutoSize=true;
-            _trendSwitch.Padding=new Padding(0,0,12,0);
-
-            var wins = (_cfg.ui?.trendWindows ?? new int[]{7,14,30})
-                        .Where(x=>x>0 && x<=90).Distinct().OrderBy(x=>x).ToArray(); // 基本的容错
-            if (!wins.Contains(_trendWindow)) _trendWindow = wins.FirstOrDefault(7);
-
-            foreach(var w in wins)
-            {
-                var rb=new RadioButton{Text=$"{w} 日",AutoSize=true,Tag=w,Margin=new Padding(0,2,18,0)};
-                if(w==_trendWindow) rb.Checked=true;
-                rb.CheckedChanged += (s, e) => {
-    if (s is RadioButton rbCtrl && rbCtrl.Checked)
-    {
-        if (rbCtrl.Tag is int w2)
-        {
-            _trendWindow = w2;
-            if (_sales != null && _sales.Count > 0) RenderCharts(_sales);
-        }
-    }
-};
-            }
-            tools.Controls.Add(_trendSwitch);
-
-            container.Controls.Add(tools,0,0);
-
-            // 主图网格
-            var grid = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=2,ColumnCount=2,Padding=new Padding(12)};
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
-            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-
-            _plotTrend.Dock=DockStyle.Fill;
-            _plotWarehouse.Dock=DockStyle.Fill;
-            _plotSize.Dock=DockStyle.Fill;
-            _plotColor.Dock=DockStyle.Fill;
-
-            grid.Controls.Add(_plotTrend,0,0);
-            grid.Controls.Add(_plotWarehouse,1,0);
-            grid.Controls.Add(_plotSize,0,1);
-            grid.Controls.Add(_plotColor,1,1);
-
-            container.Controls.Add(grid,0,1);
-            overview.Controls.Add(container);
-            _tabs.TabPages.Add(overview);
-
-            // 销售明细
-            var detail = new TabPage("销售明细"){BackColor=Color.White};
+// 销售明细
+            var detail = new TabPage("销售明细") { BackColor = UI.Background };
             var panel = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=3,ColumnCount=1,Padding=new Padding(12)};
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
@@ -500,6 +445,126 @@ content.Controls.Add(_kpi, 0, 0);
         
             BuildVipUI();
 }
+
+        // 概览
+        private void BuildOverviewTab()
+        {
+            var overview = new TabPage("概览") { BackColor = UI.Background };
+
+            var container = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 2,
+                ColumnCount = 1
+            };
+            container.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+            container.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            // 顶部工具：趋势窗口选择
+            var tools = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Padding = new Padding(12, 8, 12, 0)
+            };
+            tools.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            tools.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            var trendLabel = new Label
+            {
+                Text = "销量趋势窗口：",
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = UI.Body,
+                ForeColor = UI.MutedText,
+                Margin = new Padding(0, 4, 8, 0)
+            };
+
+            _trendSwitch.FlowDirection = FlowDirection.LeftToRight;
+            _trendSwitch.WrapContents = false;
+            _trendSwitch.AutoSize = true;
+            _trendSwitch.Dock = DockStyle.Fill;
+            _trendSwitch.Padding = new Padding(0);
+            _trendSwitch.Margin = new Padding(0, 2, 0, 0);
+
+            var wins = (_cfg.ui?.trendWindows ?? new int[] { 7, 14, 30 })
+                        .Where(x => x > 0 && x <= 90)
+                        .Distinct()
+                        .OrderBy(x => x)
+                        .ToArray();
+
+            if (wins.Length == 0)
+            {
+                wins = new[] { 7, 14, 30 };
+            }
+
+            if (!wins.Contains(_trendWindow))
+            {
+                _trendWindow = wins.FirstOrDefault();
+            }
+
+            _trendSwitch.Controls.Clear();
+            foreach (var w in wins)
+            {
+                var rb = new RadioButton
+                {
+                    Text = $"{w} 日",
+                    AutoSize = true,
+                    Tag = w,
+                    Margin = new Padding(0, 2, 16, 0),
+                    Font = UI.Body
+                };
+                if (w == _trendWindow) rb.Checked = true;
+
+                rb.CheckedChanged += (s, e) =>
+                {
+                    if (s is RadioButton rbCtrl && rbCtrl.Checked && rbCtrl.Tag is int w2)
+                    {
+                        _trendWindow = w2;
+                        if (_sales != null && _sales.Count > 0)
+                        {
+                            RenderCharts(_sales);
+                        }
+                    }
+                };
+
+                _trendSwitch.Controls.Add(rb);
+            }
+
+            tools.Controls.Add(trendLabel, 0, 0);
+            tools.Controls.Add(_trendSwitch, 1, 0);
+            container.Controls.Add(tools, 0, 0);
+
+            // 主图网格
+            var grid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 2,
+                ColumnCount = 2,
+                Padding = new Padding(12, 8, 12, 12)
+            };
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+
+            _plotTrend.Dock = DockStyle.Fill;
+            _plotWarehouse.Dock = DockStyle.Fill;
+            _plotSize.Dock = DockStyle.Fill;
+            _plotColor.Dock = DockStyle.Fill;
+
+            grid.Controls.Add(_plotTrend, 0, 0);
+            grid.Controls.Add(_plotWarehouse, 1, 0);
+            grid.Controls.Add(_plotSize, 0, 1);
+            grid.Controls.Add(_plotColor, 1, 1);
+
+            container.Controls.Add(grid, 0, 1);
+            overview.Controls.Add(container);
+            _tabs.TabPages.Add(overview);
+        }
+
 
         private static Label? ValueLabelOf(Panel p)
         {
@@ -647,53 +712,84 @@ if (!string.IsNullOrWhiteSpace(styleName))
             RenderWarehousePieOverview(_invWarehouse);
         }
 
-        private void RenderWarehousePieOverview(Dictionary<string,int> warehouseAgg)
+        
+        private void RenderWarehousePieOverview(Dictionary<string, int> warehouseAgg)
         {
             _warehouseSliceMap.Clear();
 
-            var model = new PlotModel { Title = "分仓库存占比" };
-            var pie = new PieSeries { AngleSpan = 360, StartAngle = 0, StrokeThickness = 0.5, InsideLabelPosition = 0.6, InsideLabelFormat = "{1:0}%" };
+            if (warehouseAgg == null || warehouseAgg.Count == 0)
+            {
+                var emptyModel = new PlotModel { Title = "分仓库存占比（无数据）" };
+                ApplyPlotTheme(emptyModel);
+                _plotWarehouse.Model = emptyModel;
+                return;
+            }
 
-            var list = warehouseAgg.Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && kv.Value > 0)
-                                   .OrderByDescending(kv => kv.Value).ToList();
+            var list = warehouseAgg
+                .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && kv.Value > 0)
+                .OrderByDescending(kv => kv.Value)
+                .ToList();
+
             var total = list.Sum(x => (double)x.Value);
-
             if (total <= 0)
             {
-                pie.Slices.Add(new PieSlice("无数据", 1));
+                var emptyModel = new PlotModel { Title = "分仓库存占比（无数据）" };
+                ApplyPlotTheme(emptyModel);
+                _plotWarehouse.Model = emptyModel;
+                return;
             }
-            else
+
+            var model = new PlotModel { Title = "分仓库存占比" };
+            ApplyPlotTheme(model);
+
+            var pie = new PieSeries
             {
-                var keep = list.Where(kv => kv.Value / total >= 0.03).ToList();
-                if (keep.Count < 3)
-                    keep = list.Take(3).ToList();
+                AngleSpan = 360,
+                StartAngle = 0,
+                StrokeThickness = 0.5,
+                InsideLabelPosition = 0.7,
+                InsideLabelFormat = "{1:0.#}%",
+                OutsideLabelFormat = string.Empty,
+                TickHorizontalLength = 4,
+                TickRadialLength = 4
+            };
 
-                var keepSet = new HashSet<string>(keep.Select(k => k.Key));
-                double other = 0;
-                foreach (var kv in list)
-{
-    if (keepSet.Contains(kv.Key))
-    {
-        var _slice = new OxyPlot.Series.PieSlice(kv.Key, kv.Value);
-        pie.Slices.Add(_slice);
-        _warehouseSliceMap[_slice] = kv.Key;
-    }
-    else
-    {
-        other += kv.Value;
-    }
-}
-if (other > 0)
-{
-    var _sliceOther = new OxyPlot.Series.PieSlice("其他", other);
-    pie.Slices.Add(_sliceOther);
-    _warehouseSliceMap[_sliceOther] = "其他";
-}
+            // 保留占比 >=3% 的仓，若不足 3 个，则取前 3 个，其余合并为“其他”
+            var keep = list.Where(kv => kv.Value / total >= 0.03).ToList();
+            if (keep.Count < 3)
+            {
+                keep = list.Take(3).ToList();
             }
 
+            var keepSet = new HashSet<string>(keep.Select(k => k.Key));
+            double other = 0;
+
+            foreach (var kv in list)
+            {
+                if (keepSet.Contains(kv.Key))
+                {
+                    var slice = new PieSlice(kv.Key, kv.Value);
+                    pie.Slices.Add(slice);
+                    _warehouseSliceMap[slice] = kv.Key;
+                }
+                else
+                {
+                    other += kv.Value;
+                }
+            }
+
+            if (other > 0)
+            {
+                var sliceOther = new PieSlice("其他", other);
+                pie.Slices.Add(sliceOther);
+                _warehouseSliceMap[sliceOther] = "其他";
+            }
+
+            model.Series.Clear();
             model.Series.Add(pie);
             _plotWarehouse.Model = model;
         }
+
 
         private static IEnumerable<string> MissingSizes(
             IEnumerable<string> _sizesFromSales,
@@ -721,33 +817,87 @@ if (other > 0)
             return list;
         }
 
+        
+        private static void ApplyPlotTheme(PlotModel model)
+        {
+            if (model == null) return;
+
+            model.Background = OxyColors.White;
+            model.TextColor = OxyColor.FromRgb(47, 47, 47);
+            model.TitleColor = model.TextColor;
+            model.PlotAreaBorderThickness = new OxyThickness(0);
+        }
+
+
         private void RenderCharts(List<Aggregations.SalesItem> salesItems)
         {
             var cleaned = CleanSalesForVisuals(salesItems);
 
             // 1) 趋势
             var series = Aggregations.BuildDateSeries(cleaned, _trendWindow);
-            var modelTrend = new PlotModel { Title = $"近{_trendWindow}日销量趋势", PlotMargins = new OxyThickness(50,10,10,40) };
+            var modelTrend = new PlotModel
+            {
+                Title = $"近{_trendWindow}日销量趋势",
+                PlotMargins = new OxyThickness(40, 8, 12, 32)
+            };
+            ApplyPlotTheme(modelTrend);
 
-            var xAxis = new DateTimeAxis{ Position=AxisPosition.Bottom, StringFormat="MM-dd", IntervalType=DateTimeIntervalType.Days, MajorStep=1, MinorStep=1, IntervalLength=60, IsZoomEnabled=false, IsPanEnabled=false, MajorGridlineStyle=LineStyle.Solid };
-            var yAxis = new LinearAxis{ Position=AxisPosition.Left, MinimumPadding=0, AbsoluteMinimum=0, MajorGridlineStyle=LineStyle.Solid };
-            modelTrend.Axes.Add(xAxis); modelTrend.Axes.Add(yAxis);
+            var xAxis = new DateTimeAxis
+            {
+                Position = AxisPosition.Bottom,
+                StringFormat = "MM-dd",
+                IntervalType = DateTimeIntervalType.Days,
+                MinorIntervalType = DateTimeIntervalType.Days,
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.None,
+                IsZoomEnabled = false,
+                IsPanEnabled = false
+            };
 
-            var line = new LineSeries{ Title="销量", MarkerType=MarkerType.Circle };
-            foreach(var (day,qty) in series) line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(day), qty));
+            var yAxis = new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                MinimumPadding = 0,
+                AbsoluteMinimum = 0,
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.None,
+                IsZoomEnabled = false,
+                IsPanEnabled = false
+            };
+
+            modelTrend.Axes.Clear();
+            modelTrend.Axes.Add(xAxis);
+            modelTrend.Axes.Add(yAxis);
+
+            var line = new LineSeries
+            {
+                Title = "销量",
+                MarkerType = MarkerType.Circle,
+                MarkerSize = 3
+            };
+
+            foreach (var (day, qty) in series)
+            {
+                line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(day), qty));
+            }
+
+            modelTrend.Series.Clear();
             modelTrend.Series.Add(line);
             _plotTrend.Model = modelTrend;
 
             // 2) 尺码销量（降序，Top10 视角）
-            var sizeAggRaw = cleaned.GroupBy(x=>x.Size)
-                                     .Select(g=> (Key: g.Key, Qty: (double)g.Sum(z=>z.Qty)));
-            _plotSize.Model = UiCharts.BuildBarModel(sizeAggRaw, "尺码销量(Top10)", topN: 10);
+            var sizeAggRaw = cleaned
+                .GroupBy(x => x.Size)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+            _plotSize.Model = UiCharts.BuildBarModel(sizeAggRaw, "尺码销量 (Top10)", topN: 10);
 
             // 3) 颜色销量（降序，Top10 视角）
-            var colorAggRaw = cleaned.GroupBy(x=>x.Color)
-                                      .Select(g=> (Key: g.Key, Qty: (double)g.Sum(z=>z.Qty)));
-            _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量(Top10)", topN: 10);
+            var colorAggRaw = cleaned
+                .GroupBy(x => x.Color)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+            _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量 (Top10)", topN: 10);
         }
+
 
         private void ApplyFilter(string q)
         {
