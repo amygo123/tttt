@@ -900,226 +900,75 @@ if (!string.IsNullOrWhiteSpace(styleName))
 
 
         private void RenderCharts(List<Aggregations.SalesItem> salesItems)
-        {
-            var cleaned = CleanSalesForVisuals(salesItems);
-
-            // 1) 趋势
-            var series = Aggregations.BuildDateSeries(cleaned, _trendWindow);
-            var modelTrend = new PlotModel
-            {
-                Title = $"近{_trendWindow}日销量趋势",
-                PlotMargins = new OxyThickness(40, 8, 12, 32)
-            };
-            ApplyPlotTheme(modelTrend);
-
-            var xAxis = new DateTimeAxis
-            {
-                Position = AxisPosition.Bottom,
-                StringFormat = "MM-dd",
-                IntervalType = DateTimeIntervalType.Days,
-                MinorIntervalType = DateTimeIntervalType.Days,
-                MajorGridlineStyle = LineStyle.Solid,
-                MinorGridlineStyle = LineStyle.None,
-                IsZoomEnabled = false,
-                IsPanEnabled = false
-            };
-
-            var yAxis = new LinearAxis
-            {
-                Position = AxisPosition.Left,
-                MinimumPadding = 0,
-                AbsoluteMinimum = 0,
-                MajorGridlineStyle = LineStyle.Solid,
-                MinorGridlineStyle = LineStyle.None,
-                IsZoomEnabled = false,
-                IsPanEnabled = false
-            };
-
-            modelTrend.Axes.Clear();
-            modelTrend.Axes.Add(xAxis);
-            modelTrend.Axes.Add(yAxis);
-
-            var line = new LineSeries
-            {
-                Title = "销量",
-                MarkerType = MarkerType.Circle,
-                MarkerSize = 3
-            };
-
-            foreach (var (day, qty) in series)
-            {
-                line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(day), qty));
-            }
-
-            modelTrend.Series.Clear();
-            modelTrend.Series.Add(line);
-            _plotTrend.Model = modelTrend;
-
-            // 2) 尺码销量（降序，Top10 视角）
-            var sizeAggRaw = cleaned
-                .GroupBy(x => x.Size)
-                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
-            _plotSize.Model = UiCharts.BuildBarModel(sizeAggRaw, "尺码销量 (Top10)", topN: 10);
-
-            // 3) 颜色销量（降序，Top10 视角）
-            var colorAggRaw = cleaned
-                .GroupBy(x => x.Color)
-                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
-            _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量 (Top10)", topN: 10);
-        }
-
-
-        private void ApplyFilter(string q)
-        {
-            q = (q ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(q))
-            {
-                _binding.DataSource = new BindingList<object>(_gridMaster);
-                _grid.ClearSelection();
-                return;
-            }
-
-            string ToText(object x)
-            {
-                if (x == null) return string.Empty;
-                var t = x.GetType();
-                string Get(string n)
-                {
-                    try
-                    {
-                        return t.GetProperty(n)?.GetValue(x)?.ToString() ?? string.Empty;
-                    }
-                    catch (Exception ex)
-                    {
-                        AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
-                        return string.Empty;
-                    }
-                }
-
-                return string.Join(" ",
-                    Get("日期"),
-                    Get("款式"),
-                    Get("尺码"),
-                    Get("颜色"),
-                    Get("数量"));
-            }
-
-            var filtered = UiSearch
-                .FilterAllTokens(_gridMaster, ToText, q)
-                .Cast<object>()
-                .ToList();
-
-            _binding.DataSource = new BindingList<object>(filtered);
-            _grid.ClearSelection();
-        }
-
-        private void ExportExcel()
-        {
-            var saveDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "exports");
-            Directory.CreateDirectory(saveDir);
-            var path = Path.Combine(saveDir, $"StyleWatcher_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
-
-            using var wb = new XLWorkbook();
-
-            // 报表内容交给 ResultExporter 构建：
-            // 1) 销售明细（当前主表 _gridMaster）
-            // 2) 库存明细（库存页 InventoryTabPage 内部的 InvRow 列表）
-            // 3) 唯品库存明细（_vipAll 中的原始唯品库存数据）
-            IReadOnlyList<InvRow> invRows = Array.Empty<InvRow>();
-            if (_invPage != null)
-            {
-                invRows = _invPage.AllRows;
-            }
-
-            ResultExporter.FillWorkbook(
-                wb,
-                _gridMaster,
-                invRows,
-                _vipAll
-            );
-
-            wb.SaveAs(path);
-            try { System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\""); } catch { }
-        }
-    
-
-        
-
-        
-
-        
-
-        
-    
-
-        private async System.Threading.Tasks.Task LoadPriceAsync(string styleName)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(styleName))
-                {
-                    SetKpiValue(_kpiGrade, "—");
-                    SetKpiValue(_kpiMinPrice, "—");
-                    SetKpiValue(_kpiBreakeven, "—");
-                    return;
-                }
-                using var http = new System.Net.Http.HttpClient { Timeout = System.TimeSpan.FromSeconds(5) };
-                var url = "http://192.168.40.97:8002/lookup?name=" + System.Uri.EscapeDataString(styleName);
-                var resp = await http.GetAsync(url);
-                resp.EnsureSuccessStatusCode();
-                var json = await resp.Content.ReadAsStringAsync();
-                using var doc = System.Text.Json.JsonDocument.Parse(json);
-                var arr = doc.RootElement;
-                if (arr.ValueKind == System.Text.Json.JsonValueKind.Array && arr.GetArrayLength() > 0)
-                {
-                    var first = arr[0];
-                    var grade = first.TryGetProperty("grade", out var g) ? g.GetString() : "—";
-                    var minp  = first.TryGetProperty("min_price_one", out var m) ? m.GetString() : "—";
-                    var brk   = first.TryGetProperty("breakeven_one", out var b) ? b.GetString() : "—";
-                    SetKpiValue(_kpiGrade, grade ?? "—");
-                    SetKpiValue(_kpiMinPrice, minp  ?? "—");
-                    SetKpiValue(_kpiBreakeven, brk  ?? "—");
-                }
-                else
-                {
-                    SetKpiValue(_kpiGrade, "—");
-                    SetKpiValue(_kpiMinPrice, "—");
-                    SetKpiValue(_kpiBreakeven, "—");
-                }
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
-                SetKpiValue(_kpiGrade, "—");
-                SetKpiValue(_kpiMinPrice, "—");
-                SetKpiValue(_kpiBreakeven, "—");
-            }
-        }
-
-
-        
-
-
-// === VIP INTEGRATION BEGIN ===
-// ===== 提取自 ResultForm.cs：唯品库存 页面相关代码（不多不少，按调用逻辑排序） =====
-// 说明：本文件聚合了字段声明、UI 构建与事件绑定、数据加载/解析/绑定、虚拟表格回显、排序与搜索过滤等。
-// 原始位置见各段注释（以“源：ResultForm.cs [Lxx-Lyy]”标注）。
-
-// ---------- 一、字段声明 ----------
-// 源：ResultForm.cs [L40-L70]
-// 作用：唯品库存页的控件、状态与缓存。
-/* begin: fields */
-// Vip inventory page (virtualized)
-private TabPage? _vipInvTab;
-private readonly DataGridView _vipGrid = new()
 {
-    Dock = DockStyle.Fill,
-    ReadOnly = true,
-    AllowUserToAddRows = false,
-    AllowUserToDeleteRows = false,
-    RowHeadersVisible = false,
-    VirtualMode = true,
-    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
+    var cleaned = CleanSalesForVisuals(salesItems);
+    var series = Aggregations.BuildDateSeries(cleaned, _trendWindow);
+
+    var modelTrend = new PlotModel
+    {
+        Title = $"近{_trendWindow}日销量趋势",
+        PlotMargins = new OxyThickness(40, 8, 12, 32)
+    };
+    ApplyPlotTheme(modelTrend);
+
+    var xAxis = new DateTimeAxis
+    {
+        Position = AxisPosition.Bottom,
+        StringFormat = "MM-dd",
+        IntervalType = DateTimeIntervalType.Days,
+        MinorIntervalType = DateTimeIntervalType.Days,
+        MajorGridlineStyle = LineStyle.Solid,
+        MinorGridlineStyle = LineStyle.None,
+        IsZoomEnabled = false,
+        IsPanEnabled = false
+    };
+
+    var yAxis = new LinearAxis
+    {
+        Position = AxisPosition.Left,
+        MinimumPadding = 0,
+        AbsoluteMinimum = 0,
+        MajorGridlineStyle = LineStyle.Solid,
+        MinorGridlineStyle = LineStyle.None,
+        IsZoomEnabled = false,
+        IsPanEnabled = false
+    };
+
+    modelTrend.Axes.Clear();
+    modelTrend.Axes.Add(xAxis);
+    modelTrend.Axes.Add(yAxis);
+
+    var line = new LineSeries
+    {
+        Title = "销量",
+        MarkerType = MarkerType.Circle,
+        MarkerSize = 3,
+        CanTrackerInterpolatePoints = false,
+        TrackerFormatString = "日期: {2:yyyy-MM-dd}
+销量: {4:0}"
+    };
+
+    foreach (var (day, qty) in series)
+    {
+        line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(day), qty));
+    }
+
+    modelTrend.Series.Clear();
+    modelTrend.Series.Add(line);
+    _plotTrend.Model = modelTrend;
+
+    var sizeAggRaw = cleaned
+        .GroupBy(x => x.Size)
+        .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+
+    _plotSize.Model = UiCharts.BuildBarModel(sizeAggRaw, "尺码销量 (Top10)", topN: 10);
+
+    var colorAggRaw = cleaned
+        .GroupBy(x => x.Color)
+        .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+
+    _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量 (Top10)", topN: 10);
+}
 };
 private readonly TextBox _vipSearchBox = new();
 private readonly System.Windows.Forms.Timer _vipSearchDebounce = new() { Interval = 200 };
