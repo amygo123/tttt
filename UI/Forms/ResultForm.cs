@@ -12,6 +12,7 @@ using ClosedXML.Excel;
 using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
+using OxyPlot.Annotations;
 using OxyPlot.WindowsForms;
 using System.Text.Json;
 
@@ -945,14 +946,26 @@ if (!string.IsNullOrWhiteSpace(styleName))
                 MarkerType = MarkerType.Circle,
                 MarkerSize = 3,
                 CanTrackerInterpolatePoints = false,
-                TrackerFormatString = "日期: {2:yyyy-MM-dd}\\n销量: {4:0}",
-                LabelFormatString = "{2:0}",
-                LabelMargin = 4
+                TrackerFormatString = "日期: {2:yyyy-MM-dd}\n销量: {4:0}"
             };
 
             foreach (var (day, qty) in series)
             {
-                line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(day), qty));
+                var x = DateTimeAxis.ToDouble(day);
+                var y = qty;
+                line.Points.Add(new DataPoint(x, y));
+
+                var label = new TextAnnotation
+                {
+                    Text = qty.ToString("0"),
+                    Position = new DataPoint(x, y),
+                    TextVerticalAlignment = VerticalAlignment.Bottom,
+                    TextHorizontalAlignment = HorizontalAlignment.Center,
+                    Stroke = OxyColors.Transparent,
+                    FontSize = 9,
+                    TextColor = modelTrend.TextColor
+                };
+                modelTrend.Annotations.Add(label);
             }
 
             modelTrend.Series.Clear();
