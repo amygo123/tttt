@@ -56,12 +56,16 @@ namespace StyleWatcherWin
             var ci = colors.Select((c, i) => (c, i)).ToDictionary(x => x.c, x => x.i);
             var si = sizes.Select((s, i) => (s, i)).ToDictionary(x => x.s, x => x.i);
 
-            var data = new double[colors.Count, sizes.Count];
+            // OxyPlot HeatMapSeries.Data is indexed as [x, y] where the first dimension is X (horizontal)
+            // and the second dimension is Y (vertical). We want:
+            //   X -> 尺码(Size), Y -> 颜色(Color)
+            // so we store data[sizeIndex, colorIndex].
+            var data = new double[sizes.Count, colors.Count];
             foreach (var g in snap.Rows.GroupBy(r => new { r.Color, r.Size }))
             {
                 if (!ci.TryGetValue(g.Key.Color, out var cx)) continue;
                 if (!si.TryGetValue(g.Key.Size, out var sx)) continue;
-                data[cx, sx] = g.Sum(x => x.Available);
+                data[sx, cx] = g.Sum(x => x.Available);
             }
 
             var vals = new List<double>();

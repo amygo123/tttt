@@ -479,10 +479,12 @@ namespace StyleWatcherWin
                 var xi = (int)Math.Round(hit.DataPoint.X);
                 var yi = (int)Math.Round(hit.DataPoint.Y);
 
-                if (xi >= 0 && xi < ctx.Colors.Count && yi >= 0 && yi < ctx.Sizes.Count)
+                // Data is stored as [sizeIndex, colorIndex], axes are:
+                //   X -> 尺码(Size), Y -> 颜色(Color)
+                if (xi >= 0 && xi < ctx.Sizes.Count && yi >= 0 && yi < ctx.Colors.Count)
                 {
-                    var color = ctx.Colors[xi];
-                    var size = ctx.Sizes[yi];
+                    var size = ctx.Sizes[xi];
+                    var color = ctx.Colors[yi];
                     var val = ctx.Data[xi, yi];
                     _tip.Show($"颜色：{color}  尺码：{size}  库存：{val:0}", pv, e.Location.X + 12, e.Location.Y + 12);
                 }
@@ -511,10 +513,11 @@ namespace StyleWatcherWin
                 {
                     var xi = (int)Math.Round(hit.DataPoint.X);
                     var yi = (int)Math.Round(hit.DataPoint.Y);
-                    if (xi >= 0 && xi < ctx.Colors.Count && yi >= 0 && yi < ctx.Sizes.Count)
+                    // X: size index, Y: color index
+                    if (xi >= 0 && xi < ctx.Sizes.Count && yi >= 0 && yi < ctx.Colors.Count)
                     {
-                        var color = ctx.Colors[xi];
-                        var size = ctx.Sizes[yi];
+                        var size = ctx.Sizes[xi];
+                        var color = ctx.Colors[yi];
                         onSelectionChanged((color, size));
                         return;
                     }
