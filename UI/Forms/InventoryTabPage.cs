@@ -74,7 +74,7 @@ namespace StyleWatcherWin
             _subTabs.DrawMode = TabDrawMode.Normal;
             _subTabs.SizeMode = TabSizeMode.Normal;
             _subTabs.Appearance = TabAppearance.Normal;
-            _subTabs.Padding = new Padding(12, 4);
+            _subTabs.Padding = new Padding(12, 4, 12, 4);
         }
 
         
