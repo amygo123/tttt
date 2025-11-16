@@ -78,7 +78,7 @@ namespace StyleWatcherWin
             model.Background = OxyColors.White;
             model.TextColor = OxyColor.FromRgb(47, 47, 47);
             model.TitleColor = model.TextColor;
-            model.PlotMargins = new OxyThickness(60, 6, 24, 40);
+            model.PlotMargins = new OxyThickness(80, 10, 40, 50);
             model.PlotAreaBorderThickness = new OxyThickness(0);
 
             var palette = OxyPalette.Interpolate(
@@ -107,6 +107,8 @@ namespace StyleWatcherWin
                 Position = AxisPosition.Bottom,
                 Minimum = -0.5,
                 Maximum = Math.Max(sizes.Count - 0.5, 0.5),
+                MinimumPadding = 0,
+                MaximumPadding = 0,
                 MajorStep = 1,
                 MinorStep = 1,
                 IsZoomEnabled = true,
@@ -123,6 +125,8 @@ namespace StyleWatcherWin
                 Position = AxisPosition.Left,
                 Minimum = -0.5,
                 Maximum = Math.Max(colors.Count - 0.5, 0.5),
+                MinimumPadding = 0,
+                MaximumPadding = 0,
                 MajorStep = 1,
                 MinorStep = 1,
                 IsZoomEnabled = true,

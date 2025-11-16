@@ -945,7 +945,9 @@ if (!string.IsNullOrWhiteSpace(styleName))
                 MarkerType = MarkerType.Circle,
                 MarkerSize = 3,
                 CanTrackerInterpolatePoints = false,
-                TrackerFormatString = "日期: {2:yyyy-MM-dd}\\n销量: {4:0}"
+                TrackerFormatString = "日期: {2:yyyy-MM-dd}\\n销量: {4:0}",
+                LabelFormatString = "{2:0}",
+                LabelMargin = 4
             };
 
             foreach (var (day, qty) in series)
