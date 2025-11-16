@@ -1202,7 +1202,7 @@ private static readonly HttpClient _vipHttp = new();
             
             vipLayout.Controls.Add(vipTop, 0, 0);
             vipLayout.Controls.Add(_vipGrid, 0, 1);
-            UiGrid.ApplyVisualStyle(_vipGrid);
+            UiGrid.OptimizeVirtual(_vipGrid);
             _vipInvTab.Controls.Add(vipLayout);
             _tabs.TabPages.Add(_vipInvTab);
             

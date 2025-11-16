@@ -70,8 +70,11 @@ namespace StyleWatcherWin
             root.Controls.Add(four, 0, 1);
 
             root.Controls.Add(_subTabs, 0, 2);
-            UI.StyleTabs(_subTabs);
-            _subTabs.ItemSize = new Size(150, 32);
+            // 分仓子 Tab 使用系统默认样式 + 自动宽度，确保仓名与库存数量可以完整显示
+            _subTabs.DrawMode = TabDrawMode.Normal;
+            _subTabs.SizeMode = TabSizeMode.Normal;
+            _subTabs.Appearance = TabAppearance.Normal;
+            _subTabs.Padding = new Padding(12, 4);
         }
 
         
@@ -300,33 +303,14 @@ namespace StyleWatcherWin
             }
         }
 
-        
         private void RenderWarehouseTabs(InvSnapshot snap)
         {
             _subTabs.SuspendLayout();
             _subTabs.TabPages.Clear();
 
-            if (snap == null || snap.Rows.Count == 0)
+            foreach (var g in snap.Rows.GroupBy(r => r.Warehouse).OrderByDescending(x => x.Sum(y => y.Available)))
             {
-                _subTabs.ResumeLayout();
-                return;
-            }
-
-            var groups = snap.Rows
-                .GroupBy(r => r.Warehouse)
-                .Select(g => new
-                {
-                    Warehouse = g.Key,
-                    Rows = g.Where(r => r.Available > 0).ToList(),
-                    TotalAvail = g.Where(r => r.Available > 0).Sum(r => r.Available)
-                })
-                .Where(x => x.Rows.Count > 0 && !string.IsNullOrWhiteSpace(x.Warehouse))
-                .OrderByDescending(x => x.TotalAvail)
-                .ToList();
-
-            foreach (var g in groups)
-            {
-                var page = new TabPage($"{g.Warehouse}（{g.TotalAvail}）");
+                var page = new TabPage($"{g.Key}（{g.Sum(x => x.Available)}）");
 
                 // 布局：上=搜索框，下=左右联动（热力图+明细）
                 var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
@@ -341,6 +325,7 @@ namespace StyleWatcherWin
                     Margin = new Padding(0, 4, 0, 4)
                 };
                 UI.StyleInput(search);
+
                 root.Controls.Add(search, 0, 0);
 
                 var panel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
@@ -348,13 +333,7 @@ namespace StyleWatcherWin
                 panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
                 var pv = new PlotView { Dock = DockStyle.Fill, BackColor = UI.Background };
-                var grid = new DataGridView
-                {
-                    Dock = DockStyle.Fill,
-                    ReadOnly = true,
-                    AllowUserToAddRows = false,
-                    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells
-                };
+                var grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells };
                 PrepareGridColumns(grid);
                 UiGrid.Optimize(grid);
 
@@ -365,11 +344,10 @@ namespace StyleWatcherWin
                 page.Controls.Add(root);
 
                 var subSnap = new InvSnapshot();
-                foreach (var r in g.Rows) subSnap.Rows.Add(r);
+                foreach (var r in g) subSnap.Rows.Add(r);
+                HeatmapRenderer.BuildHeatmap(subSnap, pv, $"{g.Key} 颜色×尺码");
 
-                HeatmapRenderer.BuildHeatmap(subSnap, pv, $"{g.Warehouse} 颜色×尺码");
-
-                // 初始填充该仓明细（只显示可用 > 0 的记录）
+                // 初始填充该仓明细
                 BindGrid(grid, subSnap.Rows);
 
                 // per-tab 筛选状态
@@ -389,10 +367,8 @@ namespace StyleWatcherWin
 
                 _subTabs.TabPages.Add(page);
             }
-
             _subTabs.ResumeLayout();
         }
-
 
         private void BindGrid(DataGridView grid, IEnumerable<InvRow> rows)
         {

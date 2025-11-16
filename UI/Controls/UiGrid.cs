@@ -25,6 +25,23 @@ namespace StyleWatcherWin
             grid.DoubleBuffered(true);
         }
 
+
+
+        public static void OptimizeVirtual(DataGridView grid)
+        {
+            if (grid == null) return;
+
+            grid.RowHeadersVisible = false;
+            grid.AllowUserToAddRows = false;
+            grid.AllowUserToDeleteRows = false;
+            grid.MultiSelect = false;
+            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+
+            // 虚拟模式的表格通常行数很大，避免使用 AllCells 自动调整以免性能问题，
+            // 由调用方自行设置 AutoSizeColumnsMode / AutoSizeRowsMode。
+            ApplyVisualStyle(grid);
+            grid.DoubleBuffered(true);
+        }
         public static void ApplyVisualStyle(DataGridView grid)
         {
             if (grid == null) return;
