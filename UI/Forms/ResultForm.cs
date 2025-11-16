@@ -899,77 +899,77 @@ if (!string.IsNullOrWhiteSpace(styleName))
         }
 
 
+        
         private void RenderCharts(List<Aggregations.SalesItem> salesItems)
-{
-    var cleaned = CleanSalesForVisuals(salesItems);
-    var series = Aggregations.BuildDateSeries(cleaned, _trendWindow);
+        {
+            var cleaned = CleanSalesForVisuals(salesItems);
+            var series = Aggregations.BuildDateSeries(cleaned, _trendWindow);
 
-    var modelTrend = new PlotModel
-    {
-        Title = $"近{_trendWindow}日销量趋势",
-        PlotMargins = new OxyThickness(40, 8, 12, 32)
-    };
-    ApplyPlotTheme(modelTrend);
+            var modelTrend = new PlotModel
+            {
+                Title = $"近{_trendWindow}日销量趋势",
+                PlotMargins = new OxyThickness(40, 8, 12, 32)
+            };
+            ApplyPlotTheme(modelTrend);
 
-    var xAxis = new DateTimeAxis
-    {
-        Position = AxisPosition.Bottom,
-        StringFormat = "MM-dd",
-        IntervalType = DateTimeIntervalType.Days,
-        MinorIntervalType = DateTimeIntervalType.Days,
-        MajorGridlineStyle = LineStyle.Solid,
-        MinorGridlineStyle = LineStyle.None,
-        IsZoomEnabled = false,
-        IsPanEnabled = false
-    };
+            var xAxis = new DateTimeAxis
+            {
+                Position = AxisPosition.Bottom,
+                StringFormat = "MM-dd",
+                IntervalType = DateTimeIntervalType.Days,
+                MinorIntervalType = DateTimeIntervalType.Days,
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.None,
+                IsZoomEnabled = false,
+                IsPanEnabled = false
+            };
 
-    var yAxis = new LinearAxis
-    {
-        Position = AxisPosition.Left,
-        MinimumPadding = 0,
-        AbsoluteMinimum = 0,
-        MajorGridlineStyle = LineStyle.Solid,
-        MinorGridlineStyle = LineStyle.None,
-        IsZoomEnabled = false,
-        IsPanEnabled = false
-    };
+            var yAxis = new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                MinimumPadding = 0,
+                AbsoluteMinimum = 0,
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.None,
+                IsZoomEnabled = false,
+                IsPanEnabled = false
+            };
 
-    modelTrend.Axes.Clear();
-    modelTrend.Axes.Add(xAxis);
-    modelTrend.Axes.Add(yAxis);
+            modelTrend.Axes.Clear();
+            modelTrend.Axes.Add(xAxis);
+            modelTrend.Axes.Add(yAxis);
 
-    var line = new LineSeries
-    {
-        Title = "销量",
-        MarkerType = MarkerType.Circle,
-        MarkerSize = 3,
-        CanTrackerInterpolatePoints = false,
-        TrackerFormatString = "日期: {2:yyyy-MM-dd}
-销量: {4:0}"
-    };
+            var line = new LineSeries
+            {
+                Title = "销量",
+                MarkerType = MarkerType.Circle,
+                MarkerSize = 3,
+                CanTrackerInterpolatePoints = false,
+                TrackerFormatString = "日期: {2:yyyy-MM-dd}\n销量: {4:0}"
+            };
 
-    foreach (var (day, qty) in series)
-    {
-        line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(day), qty));
-    }
+            foreach (var (day, qty) in series)
+            {
+                line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(day), qty));
+            }
 
-    modelTrend.Series.Clear();
-    modelTrend.Series.Add(line);
-    _plotTrend.Model = modelTrend;
+            modelTrend.Series.Clear();
+            modelTrend.Series.Add(line);
+            _plotTrend.Model = modelTrend;
 
-    var sizeAggRaw = cleaned
-        .GroupBy(x => x.Size)
-        .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+            var sizeAggRaw = cleaned
+                .GroupBy(x => x.Size)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
 
-    _plotSize.Model = UiCharts.BuildBarModel(sizeAggRaw, "尺码销量 (Top10)", topN: 10);
+            _plotSize.Model = UiCharts.BuildBarModel(sizeAggRaw, "尺码销量 (Top10)", topN: 10);
 
-    var colorAggRaw = cleaned
-        .GroupBy(x => x.Color)
-        .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+            var colorAggRaw = cleaned
+                .GroupBy(x => x.Color)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
 
-    _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量 (Top10)", topN: 10);
-}
-};
+            _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量 (Top10)", topN: 10);
+        }
+
 private readonly TextBox _vipSearchBox = new();
 private readonly System.Windows.Forms.Timer _vipSearchDebounce = new() { Interval = 200 };
 private readonly Label _vipStatus = new()
