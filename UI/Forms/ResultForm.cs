@@ -656,63 +656,6 @@ content.Controls.Add(_kpi, 0, 0);
             else lbl.ForeColor = Color.FromArgb(47,47,47);
         }
 
-        private void ExportExcel()
-        {
-            try
-            {
-                if (_grid == null || _grid.Columns.Count == 0)
-                {
-                    MessageBox.Show(this, "没有可导出的数据。", "导出 Excel", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                using var sfd = new SaveFileDialog
-                {
-                    Filter = "Excel 文件 (*.xlsx)|*.xlsx",
-                    FileName = $"销售明细_{DateTime.Now:yyyyMMddHHmmss}.xlsx"
-                };
-
-                if (sfd.ShowDialog(this) != DialogResult.OK)
-                    return;
-
-                using var wb = new XLWorkbook();
-                var ws = wb.Worksheets.Add("数据");
-
-                int colIndex = 1;
-                foreach (DataGridViewColumn col in _grid.Columns)
-                {
-                    if (!col.Visible) continue;
-                    ws.Cell(1, colIndex).Value = col.HeaderText;
-                    colIndex++;
-                }
-
-                int rowIndex = 2;
-                foreach (DataGridViewRow row in _grid.Rows)
-                {
-                    if (row.IsNewRow) continue;
-                    colIndex = 1;
-                    foreach (DataGridViewColumn col in _grid.Columns)
-                    {
-                        if (!col.Visible) continue;
-                        var val = row.Cells[col.Index].Value;
-                        ws.Cell(rowIndex, colIndex).Value = val?.ToString() ?? string.Empty;
-                        colIndex++;
-                    }
-                    rowIndex++;
-                }
-
-                ws.Columns().AdjustToContents();
-                wb.SaveAs(sfd.FileName);
-
-                MessageBox.Show(this, "导出完成。", "导出 Excel", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this, $"导出失败：{ex.Message}", "导出 Excel", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-        }
-
-
         // —— 与 TrayApp 对齐的接口 —— //
         public void FocusInput(){ try{ if(WindowState==FormWindowState.Minimized) WindowState=FormWindowState.Normal; _input.Focus(); _input.SelectAll(); }catch{} }
         public void ShowNoActivateAtCursor(){ try{ StartPosition=FormStartPosition.Manual; var pt=Cursor.Position; Location=new Point(Math.Max(0,pt.X-Width/2),Math.Max(0,pt.Y-Height/2)); Show(); }catch{ Show(); } }
@@ -917,79 +860,6 @@ if (!string.IsNullOrWhiteSpace(styleName))
             _plotWarehouse.Model = model;
         }
 
-        private async Task LoadPriceAsync(string styleName)
-        {
-            try
-            {
-                // 未配置价格接口或未指定款式时，直接清空价格相关 KPI
-                if (string.IsNullOrWhiteSpace(styleName)
-                    || _cfg.inventory == null
-                    || string.IsNullOrWhiteSpace(_cfg.inventory.price_url_base))
-                {
-                    SetKpiValue(_kpiGrade, "—");
-                    SetKpiValue(_kpiMinPrice, "—");
-                    SetKpiValue(_kpiBreakeven, "—");
-                    return;
-                }
-
-                var baseUrl = _cfg.inventory.price_url_base ?? string.Empty;
-                var url = baseUrl + Uri.EscapeDataString(styleName);
-
-                using var cts = new System.Threading.CancellationTokenSource(
-                    TimeSpan.FromSeconds(Math.Max(1, _cfg.timeout_seconds))
-                );
-                using var req = new HttpRequestMessage(HttpMethod.Get, url);
-                var resp = await _vipHttp.SendAsync(req, cts.Token).ConfigureAwait(false);
-                resp.EnsureSuccessStatusCode();
-
-                var json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
-                if (string.IsNullOrWhiteSpace(json))
-                {
-                    SetKpiValue(_kpiGrade, "—");
-                    SetKpiValue(_kpiMinPrice, "—");
-                    SetKpiValue(_kpiBreakeven, "—");
-                    return;
-                }
-
-                using var doc = JsonDocument.Parse(json);
-                var root = doc.RootElement;
-
-                string gradeText = "—";
-                string minPriceText = "—";
-                string breakevenText = "—";
-
-                if (root.ValueKind == JsonValueKind.Object)
-                {
-                    if (root.TryGetProperty("grade", out var gradeEl))
-                        gradeText = gradeEl.GetString() ?? "—";
-
-                    if (root.TryGetProperty("min_price", out var minEl))
-                        minPriceText = minEl.ToString();
-
-                    if (root.TryGetProperty("breakeven_price", out var breakevenEl))
-                        breakevenText = breakevenEl.ToString();
-                }
-
-                SetKpiValue(_kpiGrade, gradeText);
-                SetKpiValue(_kpiMinPrice, minPriceText);
-                SetKpiValue(_kpiBreakeven, breakevenText);
-            }
-            catch
-            {
-                // 接口失败时，不打断主流程，只清空 KPI，避免残留旧值
-                try
-                {
-                    SetKpiValue(_kpiGrade, "—");
-                    SetKpiValue(_kpiMinPrice, "—");
-                    SetKpiValue(_kpiBreakeven, "—");
-                }
-                catch
-                {
-                }
-            }
-        }
-
-
 
         private static IEnumerable<string> MissingSizes(
             IEnumerable<string> _sizesFromSales,
@@ -1029,12 +899,12 @@ if (!string.IsNullOrWhiteSpace(styleName))
         }
 
 
-        
         private void RenderCharts(List<Aggregations.SalesItem> salesItems)
         {
             var cleaned = CleanSalesForVisuals(salesItems);
-            var series = Aggregations.BuildDateSeries(cleaned, _trendWindow);
 
+            // 1) 趋势
+            var series = Aggregations.BuildDateSeries(cleaned, _trendWindow);
             var modelTrend = new PlotModel
             {
                 Title = $"近{_trendWindow}日销量趋势",
@@ -1073,9 +943,7 @@ if (!string.IsNullOrWhiteSpace(styleName))
             {
                 Title = "销量",
                 MarkerType = MarkerType.Circle,
-                MarkerSize = 3,
-                CanTrackerInterpolatePoints = false,
-                TrackerFormatString = "日期: {2:yyyy-MM-dd}\n销量: {4:0}"
+                MarkerSize = 3
             };
 
             foreach (var (day, qty) in series)
@@ -1087,79 +955,189 @@ if (!string.IsNullOrWhiteSpace(styleName))
             modelTrend.Series.Add(line);
             _plotTrend.Model = modelTrend;
 
+            // 2) 尺码销量（降序，Top10 视角）
             var sizeAggRaw = cleaned
                 .GroupBy(x => x.Size)
                 .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
-
             _plotSize.Model = UiCharts.BuildBarModel(sizeAggRaw, "尺码销量 (Top10)", topN: 10);
 
+            // 3) 颜色销量（降序，Top10 视角）
             var colorAggRaw = cleaned
                 .GroupBy(x => x.Color)
                 .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
-
             _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量 (Top10)", topN: 10);
         }
 
-        private void ApplyFilter(string? keyword)
+
+        private void ApplyFilter(string q)
         {
-            if (_gridMaster == null || _gridMaster.Count == 0)
+            q = (q ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(q))
             {
-                _binding.DataSource = new BindingList<object>();
+                _binding.DataSource = new BindingList<object>(_gridMaster);
                 _grid.ClearSelection();
                 return;
             }
 
-            IEnumerable<object> query = _gridMaster;
-
-            if (!string.IsNullOrWhiteSpace(keyword))
+            string ToText(object x)
             {
-                var parts = keyword
-                    .Split(new[] { ' ', '　', ',', '，', '+', ';' }, StringSplitOptions.RemoveEmptyEntries);
-
-                if (parts.Length > 0)
+                if (x == null) return string.Empty;
+                var t = x.GetType();
+                string Get(string n)
                 {
-                    query = _gridMaster.Where(row =>
+                    try
                     {
-                        var text = row?.ToString() ?? string.Empty;
-                        foreach (var p in parts)
-                        {
-                            if (!text.Contains(p, StringComparison.OrdinalIgnoreCase))
-                                return false;
-                        }
-                        return true;
-                    });
+                        return t.GetProperty(n)?.GetValue(x)?.ToString() ?? string.Empty;
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
+                        return string.Empty;
+                    }
                 }
+
+                return string.Join(" ",
+                    Get("日期"),
+                    Get("款式"),
+                    Get("尺码"),
+                    Get("颜色"),
+                    Get("数量"));
             }
 
-            var list = new List<object>(query);
-            _binding.DataSource = new BindingList<object>(list);
+            var filtered = UiSearch
+                .FilterAllTokens(_gridMaster, ToText, q)
+                .Cast<object>()
+                .ToList();
+
+            _binding.DataSource = new BindingList<object>(filtered);
             _grid.ClearSelection();
         }
 
-
-
-        private readonly TextBox _vipSearchBox = new();
-        private readonly System.Windows.Forms.Timer _vipSearchDebounce = new() { Interval = 200 };
-        private readonly Label _vipStatus = new()
+        private void ExportExcel()
         {
-            AutoSize = true,
-            Margin = new Padding(8, 8, 0, 0),
-            ForeColor = UI.MutedText
-        };
+            var saveDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "exports");
+            Directory.CreateDirectory(saveDir);
+            var path = Path.Combine(saveDir, $"StyleWatcher_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
 
-        private TabPage _vipInvTab = new TabPage();
-        private readonly DataGridView _vipGrid = new DataGridView();
+            using var wb = new XLWorkbook();
 
-        private readonly List<Dictionary<string, object?>> _vipAll = new();
-        private List<Dictionary<string, object?>> _vipView = new();
-        private readonly List<string> _vipColumns = new();
-        private string? _vipSortColumn;
-        private bool _vipSortAscending = true;
-        private bool _vipLoaded;
-        private bool _vipLoading;
-        private static readonly HttpClient _vipHttp = new();
-        /* end: fields */
+            // 报表内容交给 ResultExporter 构建：
+            // 1) 销售明细（当前主表 _gridMaster）
+            // 2) 库存明细（库存页 InventoryTabPage 内部的 InvRow 列表）
+            // 3) 唯品库存明细（_vipAll 中的原始唯品库存数据）
+            IReadOnlyList<InvRow> invRows = Array.Empty<InvRow>();
+            if (_invPage != null)
+            {
+                invRows = _invPage.AllRows;
+            }
 
+            ResultExporter.FillWorkbook(
+                wb,
+                _gridMaster,
+                invRows,
+                _vipAll
+            );
+
+            wb.SaveAs(path);
+            try { System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\""); } catch { }
+        }
+    
+
+        
+
+        
+
+        
+
+        
+    
+
+        private async System.Threading.Tasks.Task LoadPriceAsync(string styleName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(styleName))
+                {
+                    SetKpiValue(_kpiGrade, "—");
+                    SetKpiValue(_kpiMinPrice, "—");
+                    SetKpiValue(_kpiBreakeven, "—");
+                    return;
+                }
+                using var http = new System.Net.Http.HttpClient { Timeout = System.TimeSpan.FromSeconds(5) };
+                var url = "http://192.168.40.97:8002/lookup?name=" + System.Uri.EscapeDataString(styleName);
+                var resp = await http.GetAsync(url);
+                resp.EnsureSuccessStatusCode();
+                var json = await resp.Content.ReadAsStringAsync();
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                var arr = doc.RootElement;
+                if (arr.ValueKind == System.Text.Json.JsonValueKind.Array && arr.GetArrayLength() > 0)
+                {
+                    var first = arr[0];
+                    var grade = first.TryGetProperty("grade", out var g) ? g.GetString() : "—";
+                    var minp  = first.TryGetProperty("min_price_one", out var m) ? m.GetString() : "—";
+                    var brk   = first.TryGetProperty("breakeven_one", out var b) ? b.GetString() : "—";
+                    SetKpiValue(_kpiGrade, grade ?? "—");
+                    SetKpiValue(_kpiMinPrice, minp  ?? "—");
+                    SetKpiValue(_kpiBreakeven, brk  ?? "—");
+                }
+                else
+                {
+                    SetKpiValue(_kpiGrade, "—");
+                    SetKpiValue(_kpiMinPrice, "—");
+                    SetKpiValue(_kpiBreakeven, "—");
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
+                SetKpiValue(_kpiGrade, "—");
+                SetKpiValue(_kpiMinPrice, "—");
+                SetKpiValue(_kpiBreakeven, "—");
+            }
+        }
+
+
+        
+
+
+// === VIP INTEGRATION BEGIN ===
+// ===== 提取自 ResultForm.cs：唯品库存 页面相关代码（不多不少，按调用逻辑排序） =====
+// 说明：本文件聚合了字段声明、UI 构建与事件绑定、数据加载/解析/绑定、虚拟表格回显、排序与搜索过滤等。
+// 原始位置见各段注释（以“源：ResultForm.cs [Lxx-Lyy]”标注）。
+
+// ---------- 一、字段声明 ----------
+// 源：ResultForm.cs [L40-L70]
+// 作用：唯品库存页的控件、状态与缓存。
+/* begin: fields */
+// Vip inventory page (virtualized)
+private TabPage? _vipInvTab;
+private readonly DataGridView _vipGrid = new()
+{
+    Dock = DockStyle.Fill,
+    ReadOnly = true,
+    AllowUserToAddRows = false,
+    AllowUserToDeleteRows = false,
+    RowHeadersVisible = false,
+    VirtualMode = true,
+    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
+};
+private readonly TextBox _vipSearchBox = new();
+private readonly System.Windows.Forms.Timer _vipSearchDebounce = new() { Interval = 200 };
+private readonly Label _vipStatus = new()
+{
+    AutoSize = true,
+    Margin = new Padding(8, 8, 0, 0),
+    ForeColor = UI.MutedText
+};
+private readonly List<Dictionary<string, object?>> _vipAll = new();
+private List<Dictionary<string, object?>> _vipView = new();
+private readonly List<string> _vipColumns = new();
+private string? _vipSortColumn;
+private bool _vipSortAscending = true;
+private bool _vipLoaded;
+private bool _vipLoading;
+private static readonly HttpClient _vipHttp = new();
+/* end: fields */
 
 // ---------- 二、UI 构建与事件绑定（在 BuildTabs 中） ----------
 // 源：ResultForm.cs [L384-L451] + [附加 L1-L56]
