@@ -58,7 +58,7 @@ namespace StyleWatcherWin
             Text = "库存";
 
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34)); // 顶部工具条（合计/刷新）
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40)); // 顶部工具条（合计/刷新）
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 60));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 40));
             Controls.Add(root);
@@ -70,6 +70,7 @@ namespace StyleWatcherWin
             root.Controls.Add(four, 0, 1);
 
             root.Controls.Add(_subTabs, 0, 2);
+            UI.StyleTabs(_subTabs);
         }
 
         
@@ -103,7 +104,7 @@ namespace StyleWatcherWin
 
             var btnReload = new Button { Text = "刷新" };
             UI.StyleSecondary(btnReload);
-            btnReload.Margin = new Padding(0, 0, 0, 0);
+            btnReload.Margin = new Padding(8, 4, 0, 4);
             btnReload.Click += async (s, e) => await ReloadAsync(_styleName);
             p.Controls.Add(btnReload, 3, 0);
 
@@ -309,7 +310,7 @@ namespace StyleWatcherWin
 
                 // 布局：上=搜索框，下=左右联动（热力图+明细）
                 var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
-                root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
+                root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
                 root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
                 var search = new TextBox

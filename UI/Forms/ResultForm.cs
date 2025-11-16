@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net.Http;
 using System.Linq;
@@ -68,6 +69,67 @@ namespace StyleWatcherWin
             t.Font = Body;
             t.Margin = new Padding(0, 2, 0, 2);
         }
+
+        public static void StyleTabs(TabControl tabs)
+        {
+            if (tabs == null) return;
+
+            tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
+            tabs.SizeMode = TabSizeMode.Fixed;
+            tabs.ItemSize = new Size(96, 32);
+            tabs.Padding = new Point(16, 4);
+            tabs.Appearance = TabAppearance.Normal;
+            tabs.Alignment = TabAlignment.Top;
+            tabs.Multiline = false;
+            tabs.BackColor = HeaderBack;
+
+            tabs.DrawItem -= Tabs_DrawItem;
+            tabs.DrawItem += Tabs_DrawItem;
+        }
+
+        private static void Tabs_DrawItem(object? sender, DrawItemEventArgs e)
+        {
+            if (sender is not TabControl tabs || e.Index < 0 || e.Index >= tabs.TabPages.Count)
+                return;
+
+            var page = tabs.TabPages[e.Index];
+            var bounds = e.Bounds;
+
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+
+            using (var bg = new SolidBrush(selected ? Background : HeaderBack))
+            {
+                e.Graphics.FillRectangle(bg, bounds);
+            }
+
+            // 底部分割线
+            using (var sepPen = new Pen(CardBorder))
+            {
+                e.Graphics.DrawLine(sepPen, bounds.Left, bounds.Bottom - 1, bounds.Right, bounds.Bottom - 1);
+            }
+
+            if (selected)
+            {
+                using (var accent = new Pen(Green, 2))
+                {
+                    e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                    e.Graphics.DrawLine(accent, bounds.Left + 8, bounds.Bottom - 2, bounds.Right - 8, bounds.Bottom - 2);
+                }
+            }
+
+            var text = page.Text;
+            using (var brush = new SolidBrush(selected ? Text : MutedText))
+            {
+                var sf = new StringFormat
+                {
+                    Alignment = StringAlignment.Center,
+                    LineAlignment = StringAlignment.Center,
+                    Trimming = StringTrimming.EllipsisCharacter
+                };
+                e.Graphics.DrawString(text, Body, brush, bounds, sf);
+            }
+        }
+
     }
 
     public class ResultForm : Form
@@ -174,6 +236,7 @@ content.Controls.Add(_kpi, 0, 0);
 
             _tabs.Dock = DockStyle.Fill;
             BuildTabs();
+            UI.StyleTabs(_tabs);
             content.Controls.Add(_tabs,0,1);
 
             _searchDebounce.Tick += (s,e)=> { _searchDebounce.Stop(); ApplyFilter(_boxSearch.Text); };
@@ -1090,7 +1153,7 @@ private static readonly HttpClient _vipHttp = new();
                 ColumnCount = 1,
                 RowCount = 2
             };
-            vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             vipLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             
             var vipTop = new TableLayoutPanel
@@ -1113,9 +1176,12 @@ private static readonly HttpClient _vipHttp = new();
             _vipStatus.Text = string.Empty;
             vipTop.Controls.Add(_vipStatus, 1, 0);
             
-            var vipRefresh = new Button { Text = "刷新", AutoSize = true, Padding = new Padding(8,4,8,4), Margin = new Padding(8,4,0,4) };
+            var vipRefresh = new Button { Text = "刷新" };
+            UI.StyleSecondary(vipRefresh);
+            vipRefresh.Margin = new Padding(8, 4, 0, 4);
             vipRefresh.Click += async (s, e) => await ForceReloadVipInventoryAsync();
             vipTop.Controls.Add(vipRefresh, 2, 0);
+
             
             vipLayout.Controls.Add(vipTop, 0, 0);
             vipLayout.Controls.Add(_vipGrid, 0, 1);
