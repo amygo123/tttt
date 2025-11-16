@@ -682,7 +682,7 @@ content.Controls.Add(_kpi, 0, 0);
                 foreach (DataGridViewColumn col in _grid.Columns)
                 {
                     if (!col.Visible) continue;
-                    ws.Cell(1, colIndex).SetValue(col.HeaderText);
+                    ws.Cell(1, colIndex).Value = col.HeaderText;
                     colIndex++;
                 }
 
@@ -695,7 +695,7 @@ content.Controls.Add(_kpi, 0, 0);
                     {
                         if (!col.Visible) continue;
                         var val = row.Cells[col.Index].Value;
-                        ws.Cell(rowIndex, colIndex).SetValue(val);
+                        ws.Cell(rowIndex, colIndex).Value = val?.ToString() ?? string.Empty;
                         colIndex++;
                     }
                     rowIndex++;
