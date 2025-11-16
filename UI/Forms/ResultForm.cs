@@ -958,9 +958,9 @@ if (!string.IsNullOrWhiteSpace(styleName))
                 var label = new TextAnnotation
                 {
                     Text = qty.ToString("0"),
-                    Position = new DataPoint(x, y),
-                    TextVerticalAlignment = VerticalAlignment.Bottom,
-                    TextHorizontalAlignment = HorizontalAlignment.Center,
+                    TextPosition = new DataPoint(x, y),
+                    TextVerticalAlignment = OxyPlot.VerticalAlignment.Bottom,
+                    TextHorizontalAlignment = OxyPlot.HorizontalAlignment.Center,
                     Stroke = OxyColors.Transparent,
                     FontSize = 9,
                     TextColor = modelTrend.TextColor
