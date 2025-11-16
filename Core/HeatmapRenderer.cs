@@ -78,7 +78,7 @@ namespace StyleWatcherWin
             model.Background = OxyColors.White;
             model.TextColor = OxyColor.FromRgb(47, 47, 47);
             model.TitleColor = model.TextColor;
-            model.PlotMargins = new OxyThickness(80, 10, 40, 50);
+            model.PlotMargins = new OxyThickness(110, 40, 80, 80);
             model.PlotAreaBorderThickness = new OxyThickness(0);
 
             var palette = OxyPalette.Interpolate(
@@ -106,26 +106,6 @@ namespace StyleWatcherWin
             {
                 Position = AxisPosition.Bottom,
                 Minimum = -0.5,
-                Maximum = Math.Max(colors.Count - 0.5, 0.5),
-                MinimumPadding = 0,
-                MaximumPadding = 0,
-                MajorStep = 1,
-                MinorStep = 1,
-                IsZoomEnabled = true,
-                IsPanEnabled = true,
-                LabelFormatter = d =>
-                {
-                    var k = (int)Math.Round(d);
-                    return (k >= 0 && k < colors.Count) ? colors[k] : string.Empty;
-                }
-            };
-
-            
-
-            var axY = new LinearAxis
-            {
-                Position = AxisPosition.Left,
-                Minimum = -0.5,
                 Maximum = Math.Max(sizes.Count - 0.5, 0.5),
                 MinimumPadding = 0,
                 MaximumPadding = 0,
@@ -140,15 +120,33 @@ namespace StyleWatcherWin
                 }
             };
 
+            var axY = new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                Minimum = -0.5,
+                Maximum = Math.Max(colors.Count - 0.5, 0.5),
+                MinimumPadding = 0,
+                MaximumPadding = 0,
+                MajorStep = 1,
+                MinorStep = 1,
+                IsZoomEnabled = true,
+                IsPanEnabled = true,
+                LabelFormatter = d =>
+                {
+                    var k = (int)Math.Round(d);
+                    return (k >= 0 && k < colors.Count) ? colors[k] : string.Empty;
+                }
+            };
+
             model.Axes.Add(axX);
             model.Axes.Add(axY);
 
             var hm = new HeatMapSeries
             {
                 X0 = -0.5,
-                X1 = colors.Count - 0.5,
+                X1 = sizes.Count - 0.5,
                 Y0 = -0.5,
-                Y1 = sizes.Count - 0.5,
+                Y1 = colors.Count - 0.5,
                 Interpolate = false,
                 RenderMethod = HeatMapRenderMethod.Rectangles,
                 Data = data
