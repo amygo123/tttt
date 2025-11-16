@@ -540,7 +540,7 @@ namespace StyleWatcherWin
 
                 // 点击空白取消
                 onSelectionChanged(null);
-            }
+            };
         }
         #endregion
         public System.Collections.Generic.IEnumerable<string> CurrentZeroSizes()
