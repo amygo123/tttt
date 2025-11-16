@@ -109,8 +109,8 @@ namespace StyleWatcherWin
             var axX = new LinearAxis
             {
                 Position = AxisPosition.Bottom,
-                Minimum = -1,
-                Maximum = Math.Max(sizes.Count, 1),
+                Minimum = -0.5,
+                Maximum = sizes.Count - 0.5,
                 MinimumPadding = 0,
                 MaximumPadding = 0,
                 MajorStep = 1,
@@ -127,8 +127,8 @@ namespace StyleWatcherWin
             var axY = new LinearAxis
             {
                 Position = AxisPosition.Left,
-                Minimum = -1,
-                Maximum = Math.Max(colors.Count, 1),
+                Minimum = -0.5,
+                Maximum = colors.Count - 0.5,
                 MinimumPadding = 0,
                 MaximumPadding = 0,
                 MajorStep = 1,
