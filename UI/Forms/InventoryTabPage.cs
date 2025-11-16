@@ -468,28 +468,36 @@ namespace StyleWatcherWin
                 var ctx = pv.Tag as HeatmapContext;
                 if (hm == null || ctx == null || ctx.Colors.Count == 0 || ctx.Sizes.Count == 0) return;
 
-                var sp = new ScreenPoint(e.Location.X, e.Location.Y);
-                var hit = hm.GetNearestPoint(sp, false);
-                if (hit == null)
+                try
                 {
-                    _tip.Hide(pv);
-                    return;
-                }
+                    var sp = new ScreenPoint(e.Location.X, e.Location.Y);
+                    var hit = hm.GetNearestPoint(sp, false);
+                    if (hit == null)
+                    {
+                        _tip.Hide(pv);
+                        return;
+                    }
 
-                var xi = (int)Math.Round(hit.DataPoint.X);
-                var yi = (int)Math.Round(hit.DataPoint.Y);
+                    var xi = (int)Math.Round(hit.DataPoint.X);
+                    var yi = (int)Math.Round(hit.DataPoint.Y);
 
-                // Data is stored as [sizeIndex, colorIndex], axes are:
-                //   X -> 尺码(Size), Y -> 颜色(Color)
-                if (xi >= 0 && xi < ctx.Sizes.Count && yi >= 0 && yi < ctx.Colors.Count)
-                {
-                    var size = ctx.Sizes[xi];
-                    var color = ctx.Colors[yi];
-                    var val = ctx.Data[xi, yi];
-                    _tip.Show($"颜色：{color}  尺码：{size}  库存：{val:0}", pv, e.Location.X + 12, e.Location.Y + 12);
+                    // Data is stored as [sizeIndex, colorIndex], axes are:
+                    //   X -> 尺码(Size), Y -> 颜色(Color)
+                    if (xi >= 0 && xi < ctx.Sizes.Count && yi >= 0 && yi < ctx.Colors.Count)
+                    {
+                        var size = ctx.Sizes[xi];
+                        var color = ctx.Colors[yi];
+                        var val = ctx.Data[xi, yi];
+                        _tip.Show($"颜色：{color}  尺码：{size}  库存：{val:0}", pv, e.Location.X + 12, e.Location.Y + 12);
+                    }
+                    else
+                    {
+                        _tip.Hide(pv);
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
+                    AppLogger.LogError(ex, "UI/Heatmap/MouseMove");
                     _tip.Hide(pv);
                 }
             };
@@ -507,25 +515,32 @@ namespace StyleWatcherWin
                 var ctx = pv.Tag as HeatmapContext;
                 if (hm == null || ctx == null || ctx.Colors.Count == 0 || ctx.Sizes.Count == 0) return;
 
-                var sp = new ScreenPoint(e.Location.X, e.Location.Y);
-                var hit = hm.GetNearestPoint(sp, false);
-                if (hit != null)
+                try
                 {
-                    var xi = (int)Math.Round(hit.DataPoint.X);
-                    var yi = (int)Math.Round(hit.DataPoint.Y);
-                    // X: size index, Y: color index
-                    if (xi >= 0 && xi < ctx.Sizes.Count && yi >= 0 && yi < ctx.Colors.Count)
+                    var sp = new ScreenPoint(e.Location.X, e.Location.Y);
+                    var hit = hm.GetNearestPoint(sp, false);
+                    if (hit != null)
                     {
-                        var size = ctx.Sizes[xi];
-                        var color = ctx.Colors[yi];
-                        onSelectionChanged((color, size));
-                        return;
+                        var xi = (int)Math.Round(hit.DataPoint.X);
+                        var yi = (int)Math.Round(hit.DataPoint.Y);
+                        // X: size index, Y: color index
+                        if (xi >= 0 && xi < ctx.Sizes.Count && yi >= 0 && yi < ctx.Colors.Count)
+                        {
+                            var size = ctx.Sizes[xi];
+                            var color = ctx.Colors[yi];
+                            onSelectionChanged((color, size));
+                            return;
+                        }
                     }
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError(ex, "UI/Heatmap/MouseDown");
                 }
 
                 // 点击空白取消
                 onSelectionChanged(null);
-            };
+            }
         }
         #endregion
         public System.Collections.Generic.IEnumerable<string> CurrentZeroSizes()
