@@ -37,7 +37,7 @@ namespace StyleWatcherWin
 
         // “yyyy-MM-dd 名称 尺码 颜色: 99件”
         static readonly Regex RxLine = new Regex(
-            @"^(?<date>20\d{2}-\d{2}-\d{2})\s+(?<rest>.+?)\s*[:：]\s*(?<qty>\d+)\s*件$",
+            @"^(?:.+?\s+)?(?<date>20\d{2}-\d{2}-\d{2})\s+(?<rest>.+?)\s*[:：]\s*(?<qty>\d+)\s*件$",
             RegexOptions.Compiled);
 
         public static ParsedPayload Parse(string raw)
