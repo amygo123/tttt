@@ -10,6 +10,8 @@ namespace StyleWatcherWin
         public struct SalesItem
         {
             public DateTime Date;
+            public string Channel;
+            public string Shop;
             public string Size;
             public string Color;
             public int Qty;

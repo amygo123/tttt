@@ -166,6 +166,7 @@ namespace StyleWatcherWin
         private readonly PlotView _plotSize = new();
         private readonly PlotView _plotColor = new();
         private readonly PlotView _plotWarehouse = new();
+        private readonly PlotView _plotChannel = new();
 
                 // Status
         private readonly Label _status = new();
@@ -176,6 +177,8 @@ namespace StyleWatcherWin
         private readonly TextBox _boxSearch = new();
         private readonly FlowLayoutPanel _filterChips = new();
         private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer() { Interval = 200 };
+        private readonly FlowLayoutPanel _channelSummary = new();
+        private readonly FlowLayoutPanel _shopTop = new();
 
         // Inventory page
         private InventoryTabPage? _invPage;
@@ -482,15 +485,22 @@ content.Controls.Add(_kpi, 0, 0);
 
 // 销售明细
             var detail = new TabPage("销售明细") { BackColor = UI.Background };
-            var panel = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=3,ColumnCount=1,Padding=new Padding(12)};
+            var panel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 4,
+                ColumnCount = 1,
+                Padding = new Padding(12)
+            };
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            panel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             _boxSearch.Dock = DockStyle.Fill;
             _boxSearch.MinimumSize = new Size(0, 30);
             _boxSearch.Margin = new Padding(0, 4, 0, 4);
-            _boxSearch.PlaceholderText = "搜索（日期/款式/尺码/颜色/数量）";
+            _boxSearch.PlaceholderText = "搜索（日期/渠道/店铺/款式/尺码/颜色/数量）";
             UI.StyleInput(_boxSearch);
             _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
             panel.Controls.Add(_boxSearch, 0, 0);
@@ -501,11 +511,60 @@ content.Controls.Add(_kpi, 0, 0);
             _filterChips.Padding = new Padding(0, 0, 0, 4);
             panel.Controls.Add(_filterChips, 0, 1);
 
-            _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
-            _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.AllCells;
-            _grid.DataSource=_binding;
+            // 渠道 & 店铺汇总区域
+            var summary = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 2,
+                ColumnCount = 2,
+                Margin = new Padding(0, 0, 0, 4)
+            };
+            summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            summary.RowStyles.Add(new RowStyle(SizeType.Absolute, 18));
+            summary.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            var lblChannel = new Label
+            {
+                Text = "近7日各渠道销量",
+                AutoSize = true,
+                Dock = DockStyle.Fill
+            };
+            var lblShop = new Label
+            {
+                Text = "Top 店铺（点击查看明细）",
+                AutoSize = true,
+                Dock = DockStyle.Fill
+            };
+
+            _channelSummary.Dock = DockStyle.Fill;
+            _channelSummary.FlowDirection = FlowDirection.LeftToRight;
+            _channelSummary.WrapContents = true;
+            _channelSummary.AutoScroll = true;
+            _channelSummary.Padding = new Padding(0);
+
+            _shopTop.Dock = DockStyle.Fill;
+            _shopTop.FlowDirection = FlowDirection.LeftToRight;
+            _shopTop.WrapContents = true;
+            _shopTop.AutoScroll = true;
+            _shopTop.Padding = new Padding(0);
+
+            summary.Controls.Add(lblChannel, 0, 0);
+            summary.Controls.Add(lblShop, 1, 0);
+            summary.Controls.Add(_channelSummary, 0, 1);
+            summary.Controls.Add(_shopTop, 1, 1);
+
+            panel.Controls.Add(summary, 0, 2);
+
+            _grid.Dock = DockStyle.Fill;
+            _grid.ReadOnly = true;
+            _grid.AllowUserToAddRows = false;
+            _grid.AllowUserToDeleteRows = false;
+            _grid.RowHeadersVisible = false;
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
+            _grid.DataSource = _binding;
             UiGrid.Optimize(_grid);
-            panel.Controls.Add(_grid,0,2);
+            panel.Controls.Add(_grid, 0, 3);
             detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
 
@@ -612,12 +671,13 @@ content.Controls.Add(_kpi, 0, 0);
             var grid = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                RowCount = 2,
+                RowCount = 3,
                 ColumnCount = 2,
                 Padding = new Padding(12, 8, 12, 12)
             };
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
             grid.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 35));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 20));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
@@ -625,11 +685,14 @@ content.Controls.Add(_kpi, 0, 0);
             _plotWarehouse.Dock = DockStyle.Fill;
             _plotSize.Dock = DockStyle.Fill;
             _plotColor.Dock = DockStyle.Fill;
+            _plotChannel.Dock = DockStyle.Fill;
 
             grid.Controls.Add(_plotTrend, 0, 0);
             grid.Controls.Add(_plotWarehouse, 1, 0);
             grid.Controls.Add(_plotSize, 0, 1);
             grid.Controls.Add(_plotColor, 1, 1);
+            grid.Controls.Add(_plotChannel, 0, 2);
+            grid.SetColumnSpan(_plotChannel, 2);
 
             container.Controls.Add(grid, 0, 1);
             overview.Controls.Add(container);
@@ -699,11 +762,30 @@ content.Controls.Add(_kpi, 0, 0);
             var parsed = Parser.Parse(displayText ?? string.Empty);
 
             var newGrid = parsed.Records
-                .OrderBy(r=>r.Name).ThenBy(r=>r.Color).ThenBy(r=>r.Size).ThenByDescending(r=>r.Date)
-                .Select(r => (object)new { 日期=r.Date.ToString("yyyy-MM-dd"), 款式=r.Name, 颜色=r.Color, 尺码=r.Size, 数量=r.Qty }).ToList();
+                .OrderBy(r => r.Name)
+                .ThenBy(r => r.Color)
+                .ThenBy(r => r.Size)
+                .ThenByDescending(r => r.Date)
+                .Select(r => (object)new
+                {
+                    日期   = r.Date.ToString("yyyy-MM-dd"),
+                    渠道   = string.IsNullOrWhiteSpace(r.Channel) ? "" : r.Channel,
+                    店铺   = string.IsNullOrWhiteSpace(r.Shop) ? "" : r.Shop,
+                    款式   = r.Name,
+                    颜色   = r.Color,
+                    尺码   = r.Size,
+                    数量   = r.Qty
+                })
+                .ToList();
 
-            var newSales = parsed.Records.Select(r=> new Aggregations.SalesItem{
-                Date=r.Date, Size=r.Size??"", Color=r.Color??"", Qty=r.Qty
+            var newSales = parsed.Records.Select(r => new Aggregations.SalesItem
+            {
+                Date    = r.Date,
+                Channel = r.Channel ?? "",
+                Shop    = r.Shop ?? "",
+                Size    = r.Size ?? "",
+                Color   = r.Color ?? "",
+                Qty     = r.Qty
             }).ToList();
 
             _lastDisplayText = displayText ?? string.Empty;
@@ -716,6 +798,8 @@ content.Controls.Add(_kpi, 0, 0);
 
             // 缺失尺码 chips（按销售基线）
             SetMissingSizes(MissingSizes(_sales.Select(s=>s.Size), _invPage?.OfferedSizes() ?? System.Linq.Enumerable.Empty<string>(), _invPage?.CurrentZeroSizes() ?? System.Linq.Enumerable.Empty<string>()));
+
+            RenderSalesSummary(_sales);
 
             RenderCharts(_sales);
 
@@ -881,12 +965,170 @@ if (!string.IsNullOrWhiteSpace(styleName))
 
         private static List<Aggregations.SalesItem> CleanSalesForVisuals(IEnumerable<Aggregations.SalesItem> src)
         {
-            var list = src.Where(s => !string.IsNullOrWhiteSpace(s.Color) && !string.IsNullOrWhiteSpace(s.Size)).ToList();
-            var byColor = list.GroupBy(x=>x.Color).ToDictionary(g=>g.Key, g=>g.Sum(z=>z.Qty));
-            var bySize  = list.GroupBy(x=>x.Size ).ToDictionary(g=>g.Key, g=>g.Sum(z=>z.Qty));
-            list = list.Where(x => byColor.GetValueOrDefault(x.Color,0) != 0 && bySize.GetValueOrDefault(x.Size,0) != 0).ToList();
+            if (src == null) return new List<Aggregations.SalesItem>();
+
+            var list = src
+                .Where(s => !string.IsNullOrWhiteSpace(s.Color) && !string.IsNullOrWhiteSpace(s.Size))
+                .ToList();
+
+            var byColor = list
+                .GroupBy(x => x.Color)
+                .ToDictionary(g => g.Key, g => g.Sum(z => z.Qty));
+
+            var bySize = list
+                .GroupBy(x => x.Size)
+                .ToDictionary(g => g.Key, g => g.Sum(z => z.Qty));
+
+            list = list
+                .Where(x => byColor.GetValueOrDefault(x.Color, 0) != 0 &&
+                            bySize.GetValueOrDefault(x.Size, 0) != 0)
+                .ToList();
+
             return list;
         }
+
+        private void RenderSalesSummary(IReadOnlyList<Aggregations.SalesItem> sales)
+        {
+            _channelSummary.SuspendLayout();
+            _shopTop.SuspendLayout();
+            try
+            {
+                _channelSummary.Controls.Clear();
+                _shopTop.Controls.Clear();
+
+                if (sales == null || sales.Count == 0)
+                {
+                    var empty1 = new Label
+                    {
+                        Text = "无数据",
+                        AutoSize = true,
+                        ForeColor = UI.MutedText,
+                        Margin = new Padding(2, 4, 2, 4)
+                    };
+                    var empty2 = new Label
+                    {
+                        Text = "无数据",
+                        AutoSize = true,
+                        ForeColor = UI.MutedText,
+                        Margin = new Padding(2, 4, 2, 4)
+                    };
+                    _channelSummary.Controls.Add(empty1);
+                    _shopTop.Controls.Add(empty2);
+                    return;
+                }
+
+                var cutoff = DateTime.Today.AddDays(-6);
+                var recent = sales.Where(s => s.Date >= cutoff).ToList();
+
+                if (recent.Count == 0)
+                {
+                    var empty1 = new Label
+                    {
+                        Text = "近7日无销量",
+                        AutoSize = true,
+                        ForeColor = UI.MutedText,
+                        Margin = new Padding(2, 4, 2, 4)
+                    };
+                    var empty2 = new Label
+                    {
+                        Text = "近7日无销量",
+                        AutoSize = true,
+                        ForeColor = UI.MutedText,
+                        Margin = new Padding(2, 4, 2, 4)
+                    };
+                    _channelSummary.Controls.Add(empty1);
+                    _shopTop.Controls.Add(empty2);
+                    return;
+                }
+
+                // 渠道汇总
+                var byChannel = recent
+                    .GroupBy(s => string.IsNullOrWhiteSpace(s.Channel) ? "其他渠道" : s.Channel)
+                    .Select(g => new { Channel = g.Key, Qty = g.Sum(x => x.Qty) })
+                    .OrderByDescending(x => x.Qty)
+                    .ToList();
+
+                foreach (var item in byChannel)
+                {
+                    var chip = new Label
+                    {
+                        AutoSize = true,
+                        Text = $"{item.Channel} {item.Qty}",
+                        BackColor = UI.ChipBack,
+                        ForeColor = UI.Text,
+                        Font = new Font("Microsoft YaHei UI", 8.5f),
+                        Padding = new Padding(8, 4, 8, 4),
+                        Margin = new Padding(2, 4, 2, 4),
+                        BorderStyle = BorderStyle.FixedSingle,
+                        Cursor = Cursors.Hand,
+                        Tag = item.Channel
+                    };
+
+                    chip.Click += (_, __) =>
+                    {
+                        _boxSearch.Text = item.Channel;
+                    };
+
+                    _channelSummary.Controls.Add(chip);
+                }
+
+                // 店铺 Top N
+                var byShop = recent
+                    .Where(s => !string.IsNullOrWhiteSpace(s.Shop))
+                    .GroupBy(s => s.Shop)
+                    .Select(g => new { Shop = g.Key, Qty = g.Sum(x => x.Qty) })
+                    .OrderByDescending(x => x.Qty)
+                    .Take(10)
+                    .ToList();
+
+                if (byShop.Count == 0)
+                {
+                    var empty = new Label
+                    {
+                        Text = "近7日无店铺销量",
+                        AutoSize = true,
+                        ForeColor = UI.MutedText,
+                        Margin = new Padding(2, 4, 2, 4)
+                    };
+                    _shopTop.Controls.Add(empty);
+                }
+                else
+                {
+                    var rank = 1;
+                    foreach (var s in byShop)
+                    {
+                        var chip = new Label
+                        {
+                            AutoSize = true,
+                            Text = $"{rank}. {s.Shop} {s.Qty}",
+                            BackColor = UI.ChipBack,
+                            ForeColor = UI.Text,
+                            Font = new Font("Microsoft YaHei UI", 8.5f),
+                            Padding = new Padding(8, 4, 8, 4),
+                            Margin = new Padding(2, 4, 2, 4),
+                            BorderStyle = BorderStyle.FixedSingle,
+                            Cursor = Cursors.Hand,
+                            Tag = s.Shop
+                        };
+
+                        var shopName = s.Shop; // capture
+                        chip.Click += (_, __) =>
+                        {
+                            _boxSearch.Text = shopName;
+                        };
+
+                        _shopTop.Controls.Add(chip);
+                        rank++;
+                    }
+                }
+            }
+            finally
+            {
+                _channelSummary.ResumeLayout();
+                _shopTop.ResumeLayout();
+            }
+        }
+
 
         
         private static void ApplyPlotTheme(PlotModel model)
@@ -983,6 +1225,14 @@ if (!string.IsNullOrWhiteSpace(styleName))
                 .GroupBy(x => x.Color)
                 .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
             _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量 (Top10)", topN: 10);
+
+            // 4) 渠道销量（近7日，按总量降序）
+            var cutoff = DateTime.Today.AddDays(-6);
+            var channelAggRaw = cleaned
+                .Where(x => x.Date >= cutoff)
+                .GroupBy(x => string.IsNullOrWhiteSpace(x.Channel) ? "其他渠道" : x.Channel)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+            _plotChannel.Model = UiCharts.BuildBarModel(channelAggRaw, "近7日各渠道销量");
         }
 
 
@@ -1015,6 +1265,8 @@ if (!string.IsNullOrWhiteSpace(styleName))
 
                 return string.Join(" ",
                     Get("日期"),
+                    Get("渠道"),
+                    Get("店铺"),
                     Get("款式"),
                     Get("尺码"),
                     Get("颜色"),

@@ -120,130 +120,59 @@ namespace StyleWatcherWin
             {
                 foreach (var kv in cfg.headers.ExtraHeaders)
                 {
-                    var value = kv.Value.ToString().Trim('"');
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        request.Headers.TryAddWithoutValidation(kv.Key, value);
-                    }
+                    request.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
                 }
             }
 
-            if (method == "GET")
+            if (cfg.query != null && cfg.query.Count != 0)
             {
-                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
-                var connector = url.Contains("?") ? "&" : "?";
-                request.RequestUri = new Uri(url + connector + Uri.EscapeDataString(key) + "=" + Uri.EscapeDataString(text ?? string.Empty));
+                var q = string.Join("&", cfg.query.Select(kv => $"{kv.Key}={Uri.EscapeDataString(kv.Value)}"));
+                url = cfg.api_url.Contains("?")
+                    ? cfg.api_url + "&" + q
+                    : cfg.api_url + "?" + q;
+
+                request.RequestUri = new Uri(url);
             }
-            else
+
+            if (method == "POST" || method == "PUT")
             {
-                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
-                var body = new Dictionary<string, string>
+                var body = cfg.body;
+                if (string.IsNullOrWhiteSpace(body))
                 {
-                    [key] = text ?? string.Empty
-                };
-                var json = JsonSerializer.Serialize(body);
-                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                    body = text;
+                }
+
+                request.Content = new StringContent(body ?? string.Empty);
             }
 
             try
             {
                 var resp = await http.SendAsync(request);
                 resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync();
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError(ex, "App/Config.cs");
-                var friendly = BuildFriendlyErrorMessage(ex, url, cfg.timeout_seconds);
-                return "请求失败：" + friendly;
-            }
-        }
+                var raw = await resp.Content.ReadAsStringAsync();
 
-
-        private static string BuildFriendlyErrorMessage(Exception ex, string url, int timeoutSeconds)
-        {
-            if (ex is HttpRequestException)
-            {
-                string host;
-                try
+                // 新版接口：优先从 JSON 中提取 msg 字段（如果存在）
+                var trimmed = raw?.Trim();
+                if (!string.IsNullOrEmpty(trimmed) && trimmed.StartsWith("{"))
                 {
-                    host = new Uri(url).Host;
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(trimmed);
+                        if (doc.RootElement.TryGetProperty("msg", out var msgProp) &&
+                            msgProp.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            var msg = msgProp.GetString();
+                            if (!string.IsNullOrEmpty(msg))
+                                return msg;
+                        }
+                    }
+                    catch
+                    {
+                        // 容错：如果解析失败，退回到原始文本
+                    }
                 }
-                catch
-                {
-                    host = url;
-                }
-                return $"网络 / 连接错误，请检查网络或服务器地址：{host}";
-            }
 
-            if (ex is System.Threading.Tasks.TaskCanceledException || ex is OperationCanceledException)
-            {
-                if (timeoutSeconds <= 0) timeoutSeconds = 1;
-                return $"请求超时（当前超时 {timeoutSeconds} 秒，可在配置中调整）";
-            }
-
-            return $"调用接口出现异常：{ex.Message}";
-        }
-
-        public static async System.Threading.Tasks.Task<string> QueryInventoryAsync(AppConfig cfg, string styleName)
-        {
-            if (cfg == null || cfg.inventory == null)
-                return "[] // 请求失败：未配置库存接口";
-
-            var baseUrl = cfg.inventory.url_base;
-            if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
-                return "[] // 请求失败：库存接口地址或款号为空";
-
-            string url;
-            if (baseUrl.Contains("style_name="))
-            {
-                url = baseUrl + Uri.EscapeDataString(styleName);
-            }
-            else
-            {
-                var connector = baseUrl.Contains("?") ? "&" : "?";
-                url = baseUrl + connector + "style_name=" + Uri.EscapeDataString(styleName);
-            }
-
-            using var http = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(Math.Max(1, cfg.timeout_seconds))
-            };
-
-            try
-            {
-                var resp = await http.GetAsync(url);
-                resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync();
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError(ex, "App/Config.cs");
-                return "[] // 请求失败：" + ex.Message;
-            }
-        }
-
-        public static async System.Threading.Tasks.Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
-        {
-            if (cfg == null || cfg.inventory == null)
-                return "";
-
-            var baseUrl = cfg.inventory.price_url_base;
-            if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
-                return "";
-
-            var url = baseUrl + Uri.EscapeDataString(styleName);
-
-            using var http = new HttpClient
-            {
-                Timeout = TimeSpan.FromSeconds(Math.Max(1, cfg.timeout_seconds))
-            };
-
-            try
-            {
-                var resp = await http.GetAsync(url);
-                resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync();
+                return raw;
             }
             catch (Exception ex)
             {
