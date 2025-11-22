@@ -10,7 +10,7 @@ namespace StyleWatcherWin
 {
     public class AppConfig
     {
-        public string api_url { get; set; } = "http://47.111.189.27:8089/qrcode/saleVolumeParser";
+        public string api_url { get; set; } = "http://47.111.189.27:8089/qrcode/saleVolumeParserNew";
         public string method { get; set; } = "POST";
         public string json_key { get; set; } = "code";
         public int timeout_seconds { get; set; } = 6;
