@@ -17,6 +17,7 @@ namespace StyleWatcherWin
             public int Qty;
         }
 
+
         // —— 构建按日聚合序列 —— //
         public static List<(DateTime day, int qty)> BuildDateSeries(IEnumerable<SalesItem> sales, int windowDays)
         {
