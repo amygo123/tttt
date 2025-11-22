@@ -166,6 +166,7 @@ namespace StyleWatcherWin
         private readonly PlotView _plotSize = new();
         private readonly PlotView _plotColor = new();
         private readonly PlotView _plotWarehouse = new();
+        private readonly PlotView _plotChannel = new();
 
                 // Status
         private readonly Label _status = new();
@@ -175,6 +176,8 @@ namespace StyleWatcherWin
         private readonly BindingSource _binding = new();
         private readonly TextBox _boxSearch = new();
         private readonly FlowLayoutPanel _filterChips = new();
+        private readonly FlowLayoutPanel _channelSummary = new();
+        private readonly FlowLayoutPanel _shopTop = new();
         private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer() { Interval = 200 };
 
         // Inventory page
@@ -490,16 +493,46 @@ content.Controls.Add(_kpi, 0, 0);
             _boxSearch.Dock = DockStyle.Fill;
             _boxSearch.MinimumSize = new Size(0, 30);
             _boxSearch.Margin = new Padding(0, 4, 0, 4);
-            _boxSearch.PlaceholderText = "搜索（日期/款式/尺码/颜色/数量）";
+            _boxSearch.PlaceholderText = "搜索（日期/渠道/店铺/款式/尺码/颜色/数量）";
             UI.StyleInput(_boxSearch);
             _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
             panel.Controls.Add(_boxSearch, 0, 0);
+
+            // 汇总行：左侧过滤 Chip，中间渠道汇总，右侧 Top 店铺
+            var summaryRow = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
 
             _filterChips.Dock = DockStyle.Fill;
             _filterChips.FlowDirection = FlowDirection.LeftToRight;
             _filterChips.WrapContents = true;
             _filterChips.Padding = new Padding(0, 0, 0, 4);
-            panel.Controls.Add(_filterChips, 0, 1);
+
+            _channelSummary.Dock = DockStyle.Fill;
+            _channelSummary.FlowDirection = FlowDirection.LeftToRight;
+            _channelSummary.WrapContents = true;
+            _channelSummary.Padding = new Padding(0, 0, 0, 4);
+            _channelSummary.AutoScroll = true;
+
+            _shopTop.Dock = DockStyle.Fill;
+            _shopTop.FlowDirection = FlowDirection.LeftToRight;
+            _shopTop.WrapContents = true;
+            _shopTop.Padding = new Padding(0, 0, 0, 4);
+            _shopTop.AutoScroll = true;
+
+            summaryRow.Controls.Add(_filterChips, 0, 0);
+            summaryRow.Controls.Add(_channelSummary, 1, 0);
+            summaryRow.Controls.Add(_shopTop, 2, 0);
+
+            panel.Controls.Add(summaryRow, 0, 1);
 
             _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
             _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.AllCells;
@@ -612,12 +645,13 @@ content.Controls.Add(_kpi, 0, 0);
             var grid = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                RowCount = 2,
+                RowCount = 3,
                 ColumnCount = 2,
                 Padding = new Padding(12, 8, 12, 12)
             };
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 40));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 35));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
@@ -625,11 +659,14 @@ content.Controls.Add(_kpi, 0, 0);
             _plotWarehouse.Dock = DockStyle.Fill;
             _plotSize.Dock = DockStyle.Fill;
             _plotColor.Dock = DockStyle.Fill;
+            _plotChannel.Dock = DockStyle.Fill;
 
             grid.Controls.Add(_plotTrend, 0, 0);
             grid.Controls.Add(_plotWarehouse, 1, 0);
             grid.Controls.Add(_plotSize, 0, 1);
             grid.Controls.Add(_plotColor, 1, 1);
+            grid.Controls.Add(_plotChannel, 0, 2);
+            grid.SetColumnSpan(_plotChannel, 2);
 
             container.Controls.Add(grid, 0, 1);
             overview.Controls.Add(container);
@@ -737,6 +774,7 @@ content.Controls.Add(_kpi, 0, 0);
             SetMissingSizes(MissingSizes(_sales.Select(s=>s.Size), _invPage?.OfferedSizes() ?? System.Linq.Enumerable.Empty<string>(), _invPage?.CurrentZeroSizes() ?? System.Linq.Enumerable.Empty<string>()));
 
             RenderCharts(_sales);
+            RenderSalesSummary(_sales);
 
             _binding.DataSource = new BindingList<object>(_gridMaster);
             _grid.ClearSelection();
@@ -1002,8 +1040,102 @@ if (!string.IsNullOrWhiteSpace(styleName))
                 .GroupBy(x => x.Color)
                 .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
             _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量 (Top10)", topN: 10);
+
+            // 4) 渠道销量（近7日，各渠道对比）
+            var cutoff = DateTime.Today.AddDays(-6);
+            var channelAggRaw = cleaned
+                .Where(x => x.Date >= cutoff)
+                .GroupBy(x => string.IsNullOrWhiteSpace(x.Channel) ? "其他渠道" : x.Channel)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+            _plotChannel.Model = UiCharts.BuildBarModel(channelAggRaw, "近7日各渠道销量");
         }
 
+
+
+        private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
+        {
+            _channelSummary.SuspendLayout();
+            _shopTop.SuspendLayout();
+            try
+            {
+                _channelSummary.Controls.Clear();
+                _shopTop.Controls.Clear();
+
+                if (sales == null || sales.Count == 0)
+                {
+                    return;
+                }
+
+                var cutoff = DateTime.Today.AddDays(-6);
+                var recent = sales.Where(x => x.Date >= cutoff).ToList();
+                if (recent.Count == 0)
+                {
+                    return;
+                }
+
+                // 渠道汇总
+                var channelAgg = recent
+                    .GroupBy(x => string.IsNullOrWhiteSpace(x.Channel) ? "其他渠道" : x.Channel)
+                    .Select(g => new { Channel = g.Key, Qty = g.Sum(z => z.Qty) })
+                    .OrderByDescending(x => x.Qty)
+                    .ToList();
+
+                foreach (var c in channelAgg)
+                {
+                    var lbl = new Label
+                    {
+                        AutoSize = true,
+                        Text = $"{c.Channel} {c.Qty}",
+                        Font = UI.Subtitle,
+                        BackColor = UI.ChipBack,
+                        ForeColor = UI.Text,
+                        Padding = new Padding(6, 2, 6, 2),
+                        Margin = new Padding(4, 2, 0, 2),
+                        Cursor = Cursors.Hand
+                    };
+                    lbl.Click += (s, e) =>
+                    {
+                        _boxSearch.Text = c.Channel;
+                    };
+                    _channelSummary.Controls.Add(lbl);
+                }
+
+                // 店铺 TopN
+                var shopAgg = recent
+                    .GroupBy(x => string.IsNullOrWhiteSpace(x.Shop) ? "未命名店铺" : x.Shop)
+                    .Select(g => new { Shop = g.Key, Qty = g.Sum(z => z.Qty) })
+                    .OrderByDescending(x => x.Qty)
+                    .Take(10)
+                    .ToList();
+
+                int rank = 1;
+                foreach (var s in shopAgg)
+                {
+                    var lbl = new Label
+                    {
+                        AutoSize = true,
+                        Text = $"{rank}. {s.Shop} {s.Qty}",
+                        Font = UI.Subtitle,
+                        BackColor = UI.ChipBack,
+                        ForeColor = UI.Text,
+                        Padding = new Padding(6, 2, 6, 2),
+                        Margin = new Padding(4, 2, 0, 2),
+                        Cursor = Cursors.Hand
+                    };
+                    lbl.Click += (sender, e) =>
+                    {
+                        _boxSearch.Text = s.Shop;
+                    };
+                    _shopTop.Controls.Add(lbl);
+                    rank++;
+                }
+            }
+            finally
+            {
+                _channelSummary.ResumeLayout();
+                _shopTop.ResumeLayout();
+            }
+        }
 
         private void ApplyFilter(string q)
         {
