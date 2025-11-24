@@ -534,11 +534,36 @@ content.Controls.Add(_kpi, 0, 0);
 
             panel.Controls.Add(summaryRow, 0, 1);
 
+
             _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
             _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.AllCells;
             _grid.DataSource=_binding;
             UiGrid.Optimize(_grid);
-            panel.Controls.Add(_grid,0,2);
+
+            // 主体：左表右图分屏（左侧销售明细表，右侧洞察面板占位）
+            var split = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
+            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65));
+            split.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            var leftPanel = new Panel { Dock = DockStyle.Fill };
+            var rightPanel = new Panel { Dock = DockStyle.Fill };
+
+            leftPanel.Controls.Add(_grid);
+            // 右侧暂时为空白占位，后续步骤填充趋势/渠道/热力图等洞察模块
+            rightPanel.BackColor = UI.Background;
+
+            split.Controls.Add(leftPanel, 0, 0);
+            split.Controls.Add(rightPanel, 1, 0);
+
+            panel.Controls.Add(split,0,2);
             detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
 
