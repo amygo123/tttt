@@ -168,11 +168,6 @@ namespace StyleWatcherWin
         private readonly PlotView _plotWarehouse = new();
         private readonly PlotView _plotChannel = new();
 
-        // Sales detail insight (销售明细右侧洞察区)
-        private readonly PlotView _plotTrendDetail = new();
-        private readonly PlotView _plotChannelDetail = new();
-        private readonly TableLayoutPanel _detailInsightLayout = new();
-
                 // Status
         private readonly Label _status = new();
 
@@ -504,16 +499,17 @@ content.Controls.Add(_kpi, 0, 0);
             panel.Controls.Add(_boxSearch, 0, 0);
 
             // 汇总行：左侧过滤 Chip，中间渠道汇总，右侧 Top 店铺
-            
             var summaryRow = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 1,
+                ColumnCount = 3,
                 RowCount = 1,
                 Margin = new Padding(0),
                 Padding = new Padding(0)
             };
-            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
 
             _filterChips.Dock = DockStyle.Fill;
             _filterChips.FlowDirection = FlowDirection.LeftToRight;
@@ -532,149 +528,17 @@ content.Controls.Add(_kpi, 0, 0);
             _shopTop.Padding = new Padding(0, 0, 0, 4);
             _shopTop.AutoScroll = true;
 
-            // 上方 summary 行只放筛选 chips，渠道与店铺信息移动到右侧洞察面板
             summaryRow.Controls.Add(_filterChips, 0, 0);
+            summaryRow.Controls.Add(_channelSummary, 1, 0);
+            summaryRow.Controls.Add(_shopTop, 2, 0);
 
             panel.Controls.Add(summaryRow, 0, 1);
-
 
             _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
             _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.AllCells;
             _grid.DataSource=_binding;
             UiGrid.Optimize(_grid);
-
-            
-            // 主体：左表右图分屏（左侧销售明细表，右侧洞察面板）
-            var split = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1,
-                Margin = new Padding(0),
-                Padding = new Padding(0)
-            };
-            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
-            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65));
-            split.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            var leftPanel = new Panel { Dock = DockStyle.Fill };
-
-            // 右侧洞察面板：三行布局（趋势 / 渠道与店铺 / 热力图预留）
-            _detailInsightLayout.Dock = DockStyle.Fill;
-            _detailInsightLayout.Margin = new Padding(8, 0, 0, 0);
-            _detailInsightLayout.Padding = new Padding(0);
-            _detailInsightLayout.ColumnCount = 1;
-            _detailInsightLayout.RowCount = 3;
-            _detailInsightLayout.RowStyles.Clear();
-            _detailInsightLayout.ColumnStyles.Clear();
-            _detailInsightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 34));  // 模块1：趋势
-            _detailInsightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 33));  // 模块2：渠道与店铺
-            _detailInsightLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 33));  // 模块3：缺货与SKU热力（后续填充）
-            _detailInsightLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-
-            // 模块1：趋势分析
-            var trendPanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 2,
-                Margin = new Padding(0, 0, 0, 4),
-                Padding = new Padding(0)
-            };
-            trendPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
-            trendPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            var lblTrend = new Label
-            {
-                Text = "【模块1：趋势分析】近" + _trendWindow + "日销量走势",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = UI.Subtitle,
-                ForeColor = UI.MutedText,
-                Margin = new Padding(0, 0, 0, 4)
-            };
-
-            _plotTrendDetail.Dock = DockStyle.Fill;
-
-            trendPanel.Controls.Add(lblTrend, 0, 0);
-            trendPanel.Controls.Add(_plotTrendDetail, 0, 1);
-
-            // 模块2：渠道与店铺
-            var channelPanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 2,
-                Margin = new Padding(0, 4, 0, 4),
-                Padding = new Padding(0)
-            };
-            channelPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-            channelPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
-            channelPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
-            channelPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            var lblChannel = new Label
-            {
-                Text = "【模块2：渠道与店铺】",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = UI.Subtitle,
-                ForeColor = UI.MutedText,
-                Margin = new Padding(0, 0, 0, 4)
-            };
-
-            _plotChannelDetail.Dock = DockStyle.Fill;
-
-            // 左：渠道占比图
-            var channelChartHost = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 8, 0) };
-            channelChartHost.Controls.Add(_plotChannelDetail);
-
-            // 右：渠道 chips + 店铺 chips 堆叠
-            var channelRight = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 2,
-                Margin = new Padding(0),
-                Padding = new Padding(0)
-            };
-            channelRight.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
-            channelRight.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
-
-            _channelSummary.Dock = DockStyle.Fill;
-            _shopTop.Dock = DockStyle.Fill;
-
-            channelRight.Controls.Add(_channelSummary, 0, 0);
-            channelRight.Controls.Add(_shopTop, 0, 1);
-
-            // 组装渠道模块
-            channelPanel.Controls.Add(lblChannel, 0, 0);
-            channelPanel.SetColumnSpan(lblChannel, 2);
-            channelPanel.Controls.Add(channelChartHost, 0, 1);
-            channelPanel.Controls.Add(channelRight, 1, 1);
-
-            // 模块3：缺货与SKU热力（Step3 填充，这里先留一个占位面板）
-            var heatPlaceholder = new Panel
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 4, 0, 0)
-            };
-
-            _detailInsightLayout.Controls.Clear();
-            _detailInsightLayout.Controls.Add(trendPanel, 0, 0);
-            _detailInsightLayout.Controls.Add(channelPanel, 0, 1);
-            _detailInsightLayout.Controls.Add(heatPlaceholder, 0, 2);
-
-            leftPanel.Controls.Add(_grid);
-
-            var rightPanel = new Panel { Dock = DockStyle.Fill };
-            rightPanel.BackColor = UI.Background;
-            rightPanel.Controls.Add(_detailInsightLayout);
-
-            split.Controls.Add(leftPanel, 0, 0);
-            split.Controls.Add(rightPanel, 1, 0);
-
-            panel.Controls.Add(split,0,2);
+            panel.Controls.Add(_grid,0,2);
             detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
 
@@ -682,9 +546,11 @@ content.Controls.Add(_kpi, 0, 0);
             _invPage = new InventoryTabPage(_cfg);
             _invPage.SummaryUpdated += OnInventorySummary;
             _tabs.TabPages.Add(_invPage);
-
+        
             BuildVipUI();
 }
+
+        // 概览
         private void BuildOverviewTab()
         {
             var overview = new TabPage("概览") { BackColor = UI.Background };
@@ -1162,7 +1028,6 @@ if (!string.IsNullOrWhiteSpace(styleName))
             modelTrend.Series.Clear();
             modelTrend.Series.Add(line);
             _plotTrend.Model = modelTrend;
-            _plotTrendDetail.Model = modelTrend;
 
             // 2) 尺码销量（降序，Top10 视角）
             var sizeAggRaw = cleaned
@@ -1183,7 +1048,6 @@ if (!string.IsNullOrWhiteSpace(styleName))
                 .GroupBy(x => string.IsNullOrWhiteSpace(x.Channel) ? "其他渠道" : x.Channel)
                 .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
             _plotChannel.Model = UiCharts.BuildBarModel(channelAggRaw, "近7日各渠道销量");
-            _plotChannelDetail.Model = _plotChannel.Model;
         }
 
 
