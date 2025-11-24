@@ -685,7 +685,11 @@ content.Controls.Add(_kpi, 0, 0);
 
             BuildVipUI();
 }
-        var container = new TableLayoutPanel
+        private void BuildOverviewTab()
+        {
+            var overview = new TabPage("概览") { BackColor = UI.Background };
+
+            var container = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 RowCount = 2,
