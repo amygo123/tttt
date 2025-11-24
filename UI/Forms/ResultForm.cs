@@ -167,8 +167,6 @@ namespace StyleWatcherWin
         private readonly PlotView _plotColor = new();
         private readonly PlotView _plotWarehouse = new();
         private readonly PlotView _plotChannel = new();
-        // Sales detail insights
-        private readonly PlotView _plotSalesTrend = new();
 
                 // Status
         private readonly Label _status = new();
@@ -485,30 +483,12 @@ content.Controls.Add(_kpi, 0, 0);
                         // 概览
             BuildOverviewTab();
 
-
 // 销售明细
-            var detail = new TabPage("销售明细") { BackColor = UI.Background };
-
-            // 外层：左右分栏
-            var main = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 1,
-                ColumnCount = 2,
-                Padding = new Padding(12)
-            };
-            main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35f));
-            main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65f));
-
-            // 左侧：搜索 + 明细表
-            var left = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 2,
-                ColumnCount = 1
-            };
-            left.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-            left.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var detail = new TabPage("销售明细");
+            var panel = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=3,ColumnCount=1,Padding=new Padding(12)};
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
 
             _boxSearch.Dock = DockStyle.Fill;
             _boxSearch.MinimumSize = new Size(0, 30);
@@ -516,133 +496,53 @@ content.Controls.Add(_kpi, 0, 0);
             _boxSearch.PlaceholderText = "搜索（日期/渠道/店铺/款式/尺码/颜色/数量）";
             UI.StyleInput(_boxSearch);
             _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
-            left.Controls.Add(_boxSearch, 0, 0);
+            panel.Controls.Add(_boxSearch, 0, 0);
 
-            _grid.Dock = DockStyle.Fill;
-            _grid.ReadOnly = true;
-            _grid.AllowUserToAddRows = false;
-            _grid.AllowUserToDeleteRows = false;
-            _grid.RowHeadersVisible = false;
-            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.AllCells;
-            _grid.DataSource = _binding;
-            UiGrid.Optimize(_grid);
-            left.Controls.Add(_grid, 0, 1);
-
-            // 右侧：洞察面板
-            var right = new TableLayoutPanel
+            // 汇总行：左侧过滤 Chip，中间渠道汇总，右侧 Top 店铺
+            var summaryRow = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                RowCount = 2,
-                ColumnCount = 1,
-                Margin = new Padding(16, 0, 0, 0)
-            };
-            right.RowStyles.Add(new RowStyle(SizeType.Percent, 60f)); // 模块1：趋势分析
-            right.RowStyles.Add(new RowStyle(SizeType.Percent, 40f)); // 模块2：渠道与店铺
-
-            // 模块1：趋势分析
-            var trendPanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 2,
-                ColumnCount = 1
-            };
-            trendPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
-            trendPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            var trendLabel = new Label
-            {
-                Text = "全网销量走势（近7天）",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = UI.Subtitle,
-                Margin = new Padding(0, 0, 0, 4)
-            };
-            trendPanel.Controls.Add(trendLabel, 0, 0);
-
-            _plotSalesTrend.Dock = DockStyle.Fill;
-            _plotSalesTrend.BackColor = Color.Transparent;
-            trendPanel.Controls.Add(_plotSalesTrend, 0, 1);
-
-            // 模块2：渠道与店铺
-            var module2 = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
+                ColumnCount = 3,
                 RowCount = 1,
-                ColumnCount = 2
+                Margin = new Padding(0),
+                Padding = new Padding(0)
             };
-            module2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            module2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
 
-            // 左：渠道汇总
-            var channelPanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 2,
-                ColumnCount = 1,
-                Margin = new Padding(0, 8, 8, 0)
-            };
-            channelPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
-            channelPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            var channelLabel = new Label
-            {
-                Text = "渠道汇总（近7日）",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = UI.Subtitle,
-                Margin = new Padding(0, 0, 0, 4)
-            };
-            channelPanel.Controls.Add(channelLabel, 0, 0);
+            _filterChips.Dock = DockStyle.Fill;
+            _filterChips.FlowDirection = FlowDirection.LeftToRight;
+            _filterChips.WrapContents = true;
+            _filterChips.Padding = new Padding(0, 0, 0, 4);
 
             _channelSummary.Dock = DockStyle.Fill;
             _channelSummary.FlowDirection = FlowDirection.LeftToRight;
             _channelSummary.WrapContents = true;
             _channelSummary.Padding = new Padding(0, 0, 0, 4);
             _channelSummary.AutoScroll = true;
-            channelPanel.Controls.Add(_channelSummary, 0, 1);
-
-            // 右：TOP 店铺
-            var shopPanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 2,
-                ColumnCount = 1,
-                Margin = new Padding(8, 8, 0, 0)
-            };
-            shopPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24));
-            shopPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            var shopLabel = new Label
-            {
-                Text = "TOP 店铺排行（近7日）",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = UI.Subtitle,
-                Margin = new Padding(0, 0, 0, 4)
-            };
-            shopPanel.Controls.Add(shopLabel, 0, 0);
 
             _shopTop.Dock = DockStyle.Fill;
             _shopTop.FlowDirection = FlowDirection.LeftToRight;
             _shopTop.WrapContents = true;
             _shopTop.Padding = new Padding(0, 0, 0, 4);
             _shopTop.AutoScroll = true;
-            shopPanel.Controls.Add(_shopTop, 0, 1);
 
-            module2.Controls.Add(channelPanel, 0, 0);
-            module2.Controls.Add(shopPanel, 1, 0);
+            summaryRow.Controls.Add(_filterChips, 0, 0);
+            summaryRow.Controls.Add(_channelSummary, 1, 0);
+            summaryRow.Controls.Add(_shopTop, 2, 0);
 
-            right.Controls.Add(trendPanel, 0, 0);
-            right.Controls.Add(module2, 0, 1);
+            panel.Controls.Add(summaryRow, 0, 1);
 
-            main.Controls.Add(left, 0, 0);
-            main.Controls.Add(right, 1, 0);
-
-            detail.Controls.Add(main);
+            _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
+            _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.AllCells;
+            _grid.DataSource=_binding;
+            UiGrid.Optimize(_grid);
+            panel.Controls.Add(_grid,0,2);
+            detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
 
-
-// 库存页
+            // 库存页
             _invPage = new InventoryTabPage(_cfg);
             _invPage.SummaryUpdated += OnInventorySummary;
             _tabs.TabPages.Add(_invPage);
@@ -653,7 +553,7 @@ content.Controls.Add(_kpi, 0, 0);
         // 概览
         private void BuildOverviewTab()
         {
-            var overview = new TabPage("概览") { BackColor = UI.Background };
+            var overview = new TabPage("概览");
 
             var container = new TableLayoutPanel
             {
@@ -875,7 +775,6 @@ content.Controls.Add(_kpi, 0, 0);
 
             RenderCharts(_sales);
             RenderSalesSummary(_sales);
-            RenderSalesTrend(_sales);
 
             _binding.DataSource = new BindingList<object>(_gridMaster);
             _grid.ClearSelection();
@@ -1237,100 +1136,6 @@ if (!string.IsNullOrWhiteSpace(styleName))
                 _shopTop.ResumeLayout();
             }
         }
-
-
-        private void RenderSalesTrend(List<Aggregations.SalesItem> sales)
-        {
-            if (sales == null || sales.Count == 0)
-            {
-                _plotSalesTrend.Model = null;
-                return;
-            }
-
-            var cleaned = CleanSalesForVisuals(sales);
-            var cutoff = DateTime.Today.AddDays(-6);
-            var recent = cleaned.Where(x => x.Date >= cutoff).ToList();
-            if (recent.Count == 0)
-            {
-                _plotSalesTrend.Model = null;
-                return;
-            }
-
-            var model = new PlotModel
-            {
-                Title = "全网销量走势（近7天）",
-                PlotMargins = new OxyThickness(40, 8, 12, 32)
-            };
-            ApplyPlotTheme(model);
-
-            var minDay = recent.Min(x => x.Date).Date;
-            var maxDay = recent.Max(x => x.Date).Date;
-
-            var xAxis = new DateTimeAxis
-            {
-                Position = AxisPosition.Bottom,
-                StringFormat = "MM-dd",
-                MinorIntervalType = DateTimeIntervalType.Days,
-                IntervalType = DateTimeIntervalType.Days,
-                Minimum = DateTimeAxis.ToDouble(minDay.AddDays(-0.5)),
-                Maximum = DateTimeAxis.ToDouble(maxDay.AddDays(0.5)),
-                MajorGridlineStyle = LineStyle.Solid,
-                MinorGridlineStyle = LineStyle.None,
-                IsZoomEnabled = false,
-                IsPanEnabled = false
-            };
-
-            var yAxis = new LinearAxis
-            {
-                Position = AxisPosition.Left,
-                Minimum = 0,
-                Title = "销量",
-                MajorGridlineStyle = LineStyle.Solid,
-                MinorGridlineStyle = LineStyle.None,
-                IsZoomEnabled = false,
-                IsPanEnabled = false
-            };
-
-            model.Axes.Clear();
-            model.Axes.Add(xAxis);
-            model.Axes.Add(yAxis);
-
-            var groups = recent
-                .GroupBy(x => string.IsNullOrWhiteSpace(x.Channel) ? "其他渠道" : x.Channel)
-                .OrderBy(g => g.Key);
-
-            foreach (var g in groups)
-            {
-                var line = new LineSeries
-                {
-                    Title = g.Key,
-                    MarkerType = MarkerType.Circle,
-                    MarkerSize = 3,
-                    CanTrackerInterpolatePoints = false,
-                    TrackerFormatString = $"日期: {{2:yyyy-MM-dd}}\n渠道: {g.Key}\n销量: {{4:0}}"
-                };
-
-                var seriesByDate = g
-                    .GroupBy(r => r.Date.Date)
-                    .Select(grp => new { Day = grp.Key, Qty = grp.Sum(z => z.Qty) })
-                    .OrderBy(p => p.Day);
-
-                foreach (var p in seriesByDate)
-                {
-                    var x = DateTimeAxis.ToDouble(p.Day);
-                    var y = p.Qty;
-                    line.Points.Add(new DataPoint(x, y));
-                }
-
-                if (line.Points.Count > 0)
-                {
-                    model.Series.Add(line);
-                }
-            }
-
-            _plotSalesTrend.Model = model;
-        }
-
 
         private void ApplyFilter(string q)
         {
