@@ -15,26 +15,6 @@ using OxyPlot.WindowsForms;
 
 namespace StyleWatcherWin
 {
-    // 确保这些辅助类是公开的，供 ResultForm 使用
-    public class InvRow
-    {
-        public string Name { get; set; } = "";
-        public string Color { get; set; } = "";
-        public string Size { get; set; } = "";
-        public string Warehouse { get; set; } = "";
-        public int Available { get; set; }
-        public int OnHand { get; set; }
-    }
-
-    public class InvSnapshot
-    {
-        public List<InvRow> Rows { get; } = new();
-        public int TotalAvailable => Rows.Sum(x => x.Available);
-        public int TotalOnHand => Rows.Sum(x => x.OnHand);
-        public Dictionary<string, int> ByWarehouse() =>
-            Rows.GroupBy(x => x.Warehouse).ToDictionary(g => g.Key, g => g.Sum(x => x.Available));
-    }
-
     public class InventoryTabPage : TabPage
     {
         public event Action<int, int, Dictionary<string, int>>? SummaryUpdated;
@@ -215,6 +195,8 @@ namespace StyleWatcherWin
 
         public IEnumerable<string> CurrentZeroSizes() => _all.Rows.GroupBy(r => r.Size).Select(g => new { s = g.Key, v = g.Sum(x => x.Available) }).Where(x => !string.IsNullOrWhiteSpace(x.s) && x.v == 0).Select(x => x.s).ToList();
         public IEnumerable<string> OfferedSizes() => _all.Rows.Select(r => r.Size).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        
+        // 确保这个属性是公开的，ResultForm 依赖它
         public IReadOnlyList<InvRow> AllRows => _all.Rows;
     }
 }
