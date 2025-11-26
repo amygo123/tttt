@@ -136,7 +136,7 @@ namespace StyleWatcherWin
     public class ResultForm : Form
     {
         // 映射饼图切片 -> 仓库名（OxyPlot 2.1.0 的 PieSlice 无 Tag 属性）
-        private readonly Dictionary<OxyPlot.Series.PieSlice, string> _warehouseSliceMap = new Dictionary<OxyPlot.Series.PieSlice, string>();
+        private readonly System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string> _warehouseSliceMap = new System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string>();
 
         private readonly AppConfig _cfg;
 
@@ -159,7 +159,7 @@ namespace StyleWatcherWin
         // Tabs
         private readonly TabControl _tabs = new();
 
-        // Overview Tab Charts
+        // Overview
         private readonly FlowLayoutPanel _trendSwitch = new();
         private int _trendWindow = 7;
         private readonly PlotView _plotTrend = new();
@@ -168,22 +168,16 @@ namespace StyleWatcherWin
         private readonly PlotView _plotWarehouse = new();
         private readonly PlotView _plotChannel = new();
 
-        // Dashboard Charts (Detail Tab - New)
-        private readonly PlotView _dashTrend = new() { Dock = DockStyle.Fill, BackColor = UI.Background };
-        private readonly PlotView _dashChannel = new() { Dock = DockStyle.Fill, BackColor = UI.Background };
-        private readonly PlotView _dashStore = new() { Dock = DockStyle.Fill, BackColor = UI.Background };
-        private readonly PlotView _dashHeat = new() { Dock = DockStyle.Fill, BackColor = UI.Background };
-        // Dashboard Interaction State
-        private (string? Color, string? Size)? _dashActiveFilter = null;
-
-        // Status
+                // Status
         private readonly Label _status = new();
 
-        // Detail
+// Detail
         private readonly DataGridView _grid = new();
         private readonly BindingSource _binding = new();
         private readonly TextBox _boxSearch = new();
-        private readonly FlowLayoutPanel _filterChips = new(); // Used in left panel now
+        private readonly FlowLayoutPanel _filterChips = new();
+        private readonly FlowLayoutPanel _channelSummary = new();
+        private readonly FlowLayoutPanel _shopTop = new();
         private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer() { Interval = 200 };
 
         // Inventory page
@@ -233,25 +227,26 @@ namespace StyleWatcherWin
             _kpi.Padding = new Padding(16, 8, 16, 8);
             _kpi.BackColor = UI.Background;
 
-            // KPI 顺序
-            _kpi.Controls.Add(MakeKpi(_kpiSales7, "近7日销量", "—"));
-            _kpi.Controls.Add(MakeKpi(_kpiInv, "可用库存总量", "—"));
-            _kpi.Controls.Add(MakeKpi(_kpiDoc, "库存天数", "—"));
-            _kpi.Controls.Add(MakeKpi(_kpiGrade, "定级", "—"));
-            _kpi.Controls.Add(MakeKpi(_kpiMinPrice, "最低价", "—"));
-            _kpi.Controls.Add(MakeKpi(_kpiBreakeven, "保本价", "—"));
-            _kpi.Controls.Add(MakeKpiMissingChips(_kpiMissing, "缺货尺码"));
+// KPI 顺序：缺码 KPI 放在最后
+_kpi.Controls.Add(MakeKpi(_kpiSales7, "近7日销量", "—"));
+_kpi.Controls.Add(MakeKpi(_kpiInv, "可用库存总量", "—"));
+_kpi.Controls.Add(MakeKpi(_kpiDoc, "库存天数", "—"));
+_kpi.Controls.Add(MakeKpi(_kpiGrade, "定级", "—"));
+_kpi.Controls.Add(MakeKpi(_kpiMinPrice, "最低价", "—"));
+_kpi.Controls.Add(MakeKpi(_kpiBreakeven, "保本价", "—"));
+_kpi.Controls.Add(MakeKpiMissingChips(_kpiMissing, "缺货尺码"));
 
-            content.Controls.Add(_kpi, 0, 0);
+content.Controls.Add(_kpi, 0, 0);
 
             _tabs.Dock = DockStyle.Fill;
             BuildTabs();
             UI.StyleTabs(_tabs);
             content.Controls.Add(_tabs,0,1);
 
-            _searchDebounce.Tick += (s,e)=> { _searchDebounce.Stop(); ApplyDetailFilter(); };
+            _searchDebounce.Tick += (s,e)=> { _searchDebounce.Stop(); ApplyFilter(_boxSearch.Text); };
         }
 
+        
         private Control BuildHeader()
         {
             var head = new TableLayoutPanel
@@ -330,6 +325,8 @@ namespace StyleWatcherWin
             return head;
         }
 
+
+        
         private Control MakeKpi(Panel host, string title, string value)
         {
             host.Width = 260;
@@ -385,6 +382,7 @@ namespace StyleWatcherWin
             host.Controls.Add(inner);
             return host;
         }
+
 
         private Control MakeKpiMissingChips(Panel host, string title)
         {
@@ -442,6 +440,7 @@ namespace StyleWatcherWin
             return host;
         }
 
+
         private void SetMissingSizes(IEnumerable<string> sizes)
         {
             if (_kpiMissingFlow == null) return;
@@ -481,105 +480,146 @@ namespace StyleWatcherWin
 
         private void BuildTabs()
         {
-            // 概览
+                        // 概览
             BuildOverviewTab();
 
-            // 销售明细 (Dashboard Layout: Left List / Right Charts)
-            var detailTab = new TabPage("销售明细") { BackColor = UI.Background };
-            
-            // 使用 SplitContainer 左右分割
-            var split = new SplitContainer
-            {
-                Dock = DockStyle.Fill,
-                Orientation = Orientation.Vertical,
-                FixedPanel = FixedPanel.Panel1,
-                SplitterWidth = 8,
-                IsSplitterFixed = false,
-                BackColor = UI.HeaderBack // 分割线颜色
-            };
-            split.Panel1.BackColor = UI.Background;
-            split.Panel2.BackColor = UI.Background;
-
-            // --- 左侧：列表区 (35%) ---
-            var leftLayout = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 3, ColumnCount = 1, Padding = new Padding(12) };
-            leftLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38)); // 搜索框
-            leftLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));     // 筛选 Chips
-            leftLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // 表格
+// 销售明细
+            var detail = new TabPage("销售明细") { BackColor = UI.Background };
+            var panel = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=3,ColumnCount=1,Padding=new Padding(12)};
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
 
             _boxSearch.Dock = DockStyle.Fill;
             _boxSearch.MinimumSize = new Size(0, 30);
             _boxSearch.Margin = new Padding(0, 4, 0, 4);
-            _boxSearch.PlaceholderText = "搜索（日期/渠道/店铺/颜色/尺码）";
+            _boxSearch.PlaceholderText = "搜索（日期/渠道/店铺/款式/尺码/颜色/数量）";
             UI.StyleInput(_boxSearch);
             _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
-            
+            panel.Controls.Add(_boxSearch, 0, 0);
+
+            // 汇总行：左侧过滤 Chip，中间渠道汇总，右侧 Top 店铺
+            var summaryRow = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
+
             _filterChips.Dock = DockStyle.Fill;
-            _filterChips.AutoSize = true;
             _filterChips.FlowDirection = FlowDirection.LeftToRight;
             _filterChips.WrapContents = true;
-            _filterChips.Padding = new Padding(0, 0, 0, 8);
+            _filterChips.Padding = new Padding(0, 0, 0, 4);
 
-            _grid.Dock = DockStyle.Fill; _grid.ReadOnly = true; _grid.AllowUserToAddRows = false; _grid.AllowUserToDeleteRows = false;
-            _grid.RowHeadersVisible = false; _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
-            _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCells;
-            _grid.DataSource = _binding;
-            UiGrid.Optimize(_grid);
+            _channelSummary.Dock = DockStyle.Fill;
+            _channelSummary.FlowDirection = FlowDirection.LeftToRight;
+            _channelSummary.WrapContents = true;
+            _channelSummary.Padding = new Padding(0, 0, 0, 4);
+            _channelSummary.AutoScroll = true;
 
-            leftLayout.Controls.Add(_boxSearch, 0, 0);
-            leftLayout.Controls.Add(_filterChips, 0, 1);
-            leftLayout.Controls.Add(_grid, 0, 2);
+            _shopTop.Dock = DockStyle.Fill;
+            _shopTop.FlowDirection = FlowDirection.LeftToRight;
+            _shopTop.WrapContents = true;
+            _shopTop.Padding = new Padding(0, 0, 0, 4);
+            _shopTop.AutoScroll = true;
 
-            split.Panel1.Controls.Add(leftLayout);
+            summaryRow.Controls.Add(_filterChips, 0, 0);
+            summaryRow.Controls.Add(_channelSummary, 1, 0);
+            summaryRow.Controls.Add(_shopTop, 2, 0);
 
-            // --- 右侧：数据洞察看板 (65%) ---
-            var dashLayout = new TableLayoutPanel 
-            { 
-                Dock = DockStyle.Fill, 
-                RowCount = 3, 
-                ColumnCount = 2, 
-                Padding = new Padding(12) 
-            };
-            // Row 1: 趋势图 (30%)
-            dashLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
-            // Row 2: 渠道 + 店铺 (30%)
-            dashLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
-            // Row 3: SKU 热力图 (40%)
-            dashLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 40));
-            
-            dashLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40)); // 饼图窄一点
-            dashLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
+            panel.Controls.Add(summaryRow, 0, 1);
 
-            // 1. 趋势图 (跨两列)
-            dashLayout.Controls.Add(_dashTrend, 0, 0);
-            dashLayout.SetColumnSpan(_dashTrend, 2);
+            _grid.Dock = DockStyle.Fill;
+_grid.ReadOnly = true;
+_grid.AllowUserToAddRows = false;
+_grid.AllowUserToDeleteRows = false;
+_grid.RowHeadersVisible = false;
+_grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+_grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCells;
+_grid.DataSource = _binding;
+UiGrid.Optimize(_grid);
 
-            // 2. 中间层 (左饼右柱)
-            dashLayout.Controls.Add(_dashChannel, 0, 1);
-            dashLayout.Controls.Add(_dashStore, 1, 1);
+// 左表右图：底部区域拆成两列，左侧为销售明细列表，右侧预留洞察面板
+var main = new TableLayoutPanel
+{
+    Dock = DockStyle.Fill,
+    RowCount = 1,
+    ColumnCount = 2,
+    Margin = new Padding(0)
+};
 
-            // 3. 底部层 (SKU热力图 跨两列)
-            dashLayout.Controls.Add(_dashHeat, 0, 2);
-            dashLayout.SetColumnSpan(_dashHeat, 2);
-            
-            // 绑定热力图点击事件
-            BindHeatmapDashboardInteraction(_dashHeat);
+// 销售明细列表宽度固定在窗体宽度的约 35%~40%，避免随着窗口放大无限拉伸
+var listWidth = Math.Max(640, (int)(ClientSize.Width * 0.38));
+main.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, listWidth));
+main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            split.Panel2.Controls.Add(dashLayout);
-            
-            // 设置默认分割比例 (35% : 65%)
-            // 注意：SplitContainer 需要 Size 确定后 SplitterDistance 才准确，这里先设个大概
-            split.SplitterDistance = 400; 
+// 左侧：销售明细表（高度由行撑满，内部滚动）
+var listPanel = new Panel
+{
+    Dock = DockStyle.Fill,
+    Margin = new Padding(0, 0, 8, 0)
+};
+listPanel.Controls.Add(_grid);
+main.Controls.Add(listPanel, 0, 0);
 
-            detailTab.Controls.Add(split);
-            _tabs.TabPages.Add(detailTab);
+// 右侧：洞察面板占位（Top / Middle / Bottom 三层）
+var dashboard = new TableLayoutPanel
+{
+    Dock = DockStyle.Fill,
+    RowCount = 3,
+    ColumnCount = 1,
+    Margin = new Padding(0),
+    BackColor = UI.Background
+};
+dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
+dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
+dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 40));
 
-            // 库存页
+dashboard.Controls.Add(new Label
+{
+    Text = "趋势层（待实现）",
+    Dock = DockStyle.Fill,
+    TextAlign = ContentAlignment.MiddleCenter,
+    Font = UI.Subtitle,
+    ForeColor = UI.MutedText
+}, 0, 0);
+
+dashboard.Controls.Add(new Label
+{
+    Text = "归因层（待实现）",
+    Dock = DockStyle.Fill,
+    TextAlign = ContentAlignment.MiddleCenter,
+    Font = UI.Subtitle,
+    ForeColor = UI.MutedText
+}, 0, 1);
+
+dashboard.Controls.Add(new Label
+{
+    Text = "SKU 热力图（待实现）",
+    Dock = DockStyle.Fill,
+    TextAlign = ContentAlignment.MiddleCenter,
+    Font = UI.Subtitle,
+    ForeColor = UI.MutedText
+}, 0, 2);
+
+main.Controls.Add(dashboard, 1, 0);
+
+panel.Controls.Add(main, 0, 2);
+detail.Controls.Add(panel);
+_tabs.TabPages.Add(detail);
+
+// 库存页
             _invPage = new InventoryTabPage(_cfg);
             _invPage.SummaryUpdated += OnInventorySummary;
             _tabs.TabPages.Add(_invPage);
         
             BuildVipUI();
-        }
+}
 
         // 概览
         private void BuildOverviewTab()
@@ -704,6 +744,7 @@ namespace StyleWatcherWin
             _tabs.TabPages.Add(overview);
         }
 
+
         private static Label? ValueLabelOf(Panel p)
         {
             var table = p.Controls.OfType<TableLayoutPanel>().FirstOrDefault();
@@ -724,24 +765,25 @@ namespace StyleWatcherWin
             else lbl.ForeColor = Color.FromArgb(47,47,47);
         }
 
+        // —— 与 TrayApp 对齐的接口 —— //
         public void FocusInput(){ try{ if(WindowState==FormWindowState.Minimized) WindowState=FormWindowState.Normal; _input.Focus(); _input.SelectAll(); }catch{} }
         public void ShowNoActivateAtCursor(){ try{ StartPosition=FormStartPosition.Manual; var pt=Cursor.Position; Location=new Point(Math.Max(0,pt.X-Width/2),Math.Max(0,pt.Y-Height/2)); Show(); }catch{ Show(); } }
         public void ShowAndFocusCentered(){ ShowAndFocusCentered(false); }
         public void ShowAndFocusCentered(bool alwaysOnTop){ TopMost=false; StartPosition=FormStartPosition.CenterScreen; Show(); Activate(); FocusInput(); }
         public void SetLoading(string message)
-        {
-            _status.Text = message ?? string.Empty;
+{
+    _status.Text = message ?? string.Empty;
 
-            SetKpiValue(_kpiSales7, "—");
-            SetKpiValue(_kpiInv, "—");
-            SetKpiValue(_kpiDoc, "—");
-            SetKpiValue(_kpiGrade, "—");
-            SetKpiValue(_kpiMinPrice, "—");
-            SetKpiValue(_kpiBreakeven, "—");
-            SetMissingSizes(Array.Empty<string>());
-        }
+    SetKpiValue(_kpiSales7, "—");
+    SetKpiValue(_kpiInv, "—");
+    SetKpiValue(_kpiDoc, "—");
+    SetKpiValue(_kpiGrade, "—");
+    SetKpiValue(_kpiMinPrice, "—");
+    SetKpiValue(_kpiBreakeven, "—");
+    SetMissingSizes(Array.Empty<string>());
+}
 
-        public async Task ApplyRawTextAsync(string selection, string parsed)
+        public async System.Threading.Tasks.Task ApplyRawTextAsync(string selection, string parsed)
         {
             _input.Text = selection ?? string.Empty;
             await LoadTextAsync(parsed ?? string.Empty);
@@ -751,6 +793,7 @@ namespace StyleWatcherWin
         {
             _input.Text = text ?? string.Empty;
         }
+
 
         public async Task LoadTextAsync(string raw)=>await ReloadAsync(raw);
         private async Task ReloadAsync()=>await ReloadAsync(_input.Text);
@@ -810,12 +853,13 @@ namespace StyleWatcherWin
             SetKpiValue(_kpiSales7, sales7.ToString());
 
             // 缺失尺码 chips（按销售基线）
-            SetMissingSizes(MissingSizes(_sales.Select(s=>s.Size), _invPage?.OfferedSizes() ?? Enumerable.Empty<string>(), _invPage?.CurrentZeroSizes() ?? Enumerable.Empty<string>()));
+            SetMissingSizes(MissingSizes(_sales.Select(s=>s.Size), _invPage?.OfferedSizes() ?? System.Linq.Enumerable.Empty<string>(), _invPage?.CurrentZeroSizes() ?? System.Linq.Enumerable.Empty<string>()));
 
             RenderCharts(_sales);
-            // RenderSalesSummary(_sales); // Moved to Dashboard Panel
+            RenderSalesSummary(_sales);
 
             _binding.DataSource = new BindingList<SaleRow>(_gridMaster);
+            // 隐藏内部搜索列
             if (_grid.Columns.Contains("SearchText"))
                 _grid.Columns["SearchText"].Visible = false;
             _grid.ClearSelection();
@@ -825,30 +869,28 @@ namespace StyleWatcherWin
             if (_grid.Columns.Contains("日期")) _grid.Columns["日期"].DisplayIndex = 3;
             if (_grid.Columns.Contains("数量")) _grid.Columns["数量"].DisplayIndex = 4;
 
-            // 触发推断
-            var styleName = parsed.Records
-                .Select(r => r.Name)
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .GroupBy(n => n)
-                .OrderByDescending(g => g.Count())
-                .FirstOrDefault()
-                ?.Key;
+            // 推断 styleName（仅基于解析结果，不再使用默认款兜底）
+var styleName = parsed.Records
+    .Select(r => r.Name)
+    .Where(n => !string.IsNullOrWhiteSpace(n))
+    .GroupBy(n => n)
+    .OrderByDescending(g => g.Count())
+    .FirstOrDefault()
+    ?.Key;
 
-            if (!string.IsNullOrWhiteSpace(styleName))
+if (!string.IsNullOrWhiteSpace(styleName))
             {
-                try { 
-                    await _invPage?.LoadInventoryAsync(styleName); 
-                    // 库存加载完成后，渲染右侧的详细 Dashboard (结合销售 + 库存)
-                    RenderDetailDashboard();
-                } catch {}
+                try { _ = _invPage?.LoadInventoryAsync(styleName); } catch {}
                 try { _ = LoadPriceAsync(styleName); } catch {}
             }
             else
             {
+                // 没有解析出任何款式名称：销售为空或数据格式异常
+                // 将库存页和价格 KPI 一并重置为“无数据”状态，避免残留上一笔查询的结果。
                 try { _invPage?.ResetToEmpty(); } catch {}
                 try { _ = LoadPriceAsync(string.Empty); } catch {}
-                // 清空 Dashboard
-                RenderDetailDashboard(); 
+
+                // 同时给出明确提示，说明当前查询没有销售明细。
                 SetLoading("未解析到任何销售明细记录，库存与价格信息已清空。");
             }
         }
@@ -867,7 +909,7 @@ namespace StyleWatcherWin
             var avg = lastN / (double)baseDays;
 
             string daysText = "—";
-            Color? daysColor = null;
+            System.Drawing.Color? daysColor = null;
             if (avg > 0)
             {
                 var d = Math.Round(totalAvail / avg, 1);
@@ -875,25 +917,24 @@ namespace StyleWatcherWin
 
                 var red = _cfg.inventoryAlert?.docRed ?? 3;
                 var yellow = _cfg.inventoryAlert?.docYellow ?? 7;
-                daysColor = d < red ? UI.Red : (d < yellow ? UI.Yellow : UI.Green);
+                daysColor = d < red ? Color.FromArgb(215, 58, 73) : (d < yellow ? Color.FromArgb(216, 160, 18) : Color.FromArgb(26, 127, 55));
             }
             SetKpiValue(_kpiDoc, daysText, daysColor);
 
             // 概览页：分仓占比
             RenderWarehousePieOverview(_invWarehouse);
-            
-            // 每次库存更新后，也尝试更新 Dashboard (如果已经在显示)
-            if (_sales != null && _sales.Count > 0)
-                RenderDetailDashboard();
         }
 
+        
         private void RenderWarehousePieOverview(Dictionary<string, int> warehouseAgg)
         {
             _warehouseSliceMap.Clear();
+
             if (warehouseAgg == null || warehouseAgg.Count == 0)
             {
-                _plotWarehouse.Model = new PlotModel { Title = "分仓库存占比（无数据）" };
-                ApplyPlotTheme(_plotWarehouse.Model);
+                var emptyModel = new PlotModel { Title = "分仓库存占比（无数据）" };
+                ApplyPlotTheme(emptyModel);
+                _plotWarehouse.Model = emptyModel;
                 return;
             }
 
@@ -905,8 +946,9 @@ namespace StyleWatcherWin
             var total = list.Sum(x => (double)x.Value);
             if (total <= 0)
             {
-                _plotWarehouse.Model = new PlotModel { Title = "分仓库存占比（无数据）" };
-                ApplyPlotTheme(_plotWarehouse.Model);
+                var emptyModel = new PlotModel { Title = "分仓库存占比（无数据）" };
+                ApplyPlotTheme(emptyModel);
+                _plotWarehouse.Model = emptyModel;
                 return;
             }
 
@@ -925,8 +967,12 @@ namespace StyleWatcherWin
                 TickRadialLength = 4
             };
 
+            // 保留占比 >=3% 的仓，若不足 3 个，则取前 3 个，其余合并为“其他”
             var keep = list.Where(kv => kv.Value / total >= 0.03).ToList();
-            if (keep.Count < 3) keep = list.Take(3).ToList();
+            if (keep.Count < 3)
+            {
+                keep = list.Take(3).ToList();
+            }
 
             var keepSet = new HashSet<string>(keep.Select(k => k.Key));
             double other = 0;
@@ -939,7 +985,10 @@ namespace StyleWatcherWin
                     pie.Slices.Add(slice);
                     _warehouseSliceMap[slice] = kv.Key;
                 }
-                else other += kv.Value;
+                else
+                {
+                    other += kv.Value;
+                }
             }
 
             if (other > 0)
@@ -949,9 +998,11 @@ namespace StyleWatcherWin
                 _warehouseSliceMap[sliceOther] = "其他";
             }
 
+            model.Series.Clear();
             model.Series.Add(pie);
             _plotWarehouse.Model = model;
         }
+
 
         private static IEnumerable<string> MissingSizes(
             IEnumerable<string> _sizesFromSales,
@@ -969,6 +1020,7 @@ namespace StyleWatcherWin
                     yield return s;
         }
         
+
         private static List<Aggregations.SalesItem> CleanSalesForVisuals(IEnumerable<Aggregations.SalesItem> src)
         {
             var list = src.Where(s => !string.IsNullOrWhiteSpace(s.Color) && !string.IsNullOrWhiteSpace(s.Size)).ToList();
@@ -978,14 +1030,17 @@ namespace StyleWatcherWin
             return list;
         }
 
+        
         private static void ApplyPlotTheme(PlotModel model)
         {
             if (model == null) return;
+
             model.Background = OxyColors.White;
             model.TextColor = OxyColor.FromRgb(47, 47, 47);
             model.TitleColor = model.TextColor;
             model.PlotAreaBorderThickness = new OxyThickness(0);
         }
+
 
         private void RenderCharts(List<Aggregations.SalesItem> salesItems)
         {
@@ -999,262 +1054,197 @@ namespace StyleWatcherWin
                 PlotMargins = new OxyThickness(40, 8, 12, 32)
             };
             ApplyPlotTheme(modelTrend);
-            // ... (Axis setup same as before)
-            var xAxis = new DateTimeAxis { Position = AxisPosition.Bottom, StringFormat = "MM-dd", IsZoomEnabled = false, IsPanEnabled = false };
-            var yAxis = new LinearAxis { Position = AxisPosition.Left, MinimumPadding = 0, AbsoluteMinimum = 0, IsZoomEnabled = false, IsPanEnabled = false };
-            modelTrend.Axes.Add(xAxis); modelTrend.Axes.Add(yAxis);
 
-            var line = new LineSeries { Title = "销量", MarkerType = MarkerType.Circle, MarkerSize = 3, Color = OxyColors.SteelBlue };
+            var xAxis = new DateTimeAxis
+            {
+                Position = AxisPosition.Bottom,
+                StringFormat = "MM-dd",
+                IntervalType = DateTimeIntervalType.Days,
+                MinorIntervalType = DateTimeIntervalType.Days,
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.None,
+                IsZoomEnabled = false,
+                IsPanEnabled = false
+            };
+
+            var yAxis = new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                MinimumPadding = 0,
+                AbsoluteMinimum = 0,
+                MajorGridlineStyle = LineStyle.Solid,
+                MinorGridlineStyle = LineStyle.None,
+                IsZoomEnabled = false,
+                IsPanEnabled = false
+            };
+
+            modelTrend.Axes.Clear();
+            modelTrend.Axes.Add(xAxis);
+            modelTrend.Axes.Add(yAxis);
+
+            var line = new LineSeries
+            {
+                Title = "销量",
+                MarkerType = MarkerType.Circle,
+                MarkerSize = 3,
+                CanTrackerInterpolatePoints = false,
+                TrackerFormatString = "日期: {2:yyyy-MM-dd}\n销量: {4:0}"
+            };
+
             foreach (var (day, qty) in series)
             {
                 var x = DateTimeAxis.ToDouble(day);
-                line.Points.Add(new DataPoint(x, qty));
-                var label = new TextAnnotation { Text = qty.ToString("0"), TextPosition = new DataPoint(x, qty), TextVerticalAlignment = VerticalAlignment.Bottom, TextHorizontalAlignment = HorizontalAlignment.Center, Stroke = OxyColors.Transparent, FontSize = 9, TextColor = modelTrend.TextColor };
+                var y = qty;
+                line.Points.Add(new DataPoint(x, y));
+
+                var label = new TextAnnotation
+                {
+                    Text = qty.ToString("0"),
+                    TextPosition = new DataPoint(x, y),
+                    TextVerticalAlignment = OxyPlot.VerticalAlignment.Bottom,
+                    TextHorizontalAlignment = OxyPlot.HorizontalAlignment.Center,
+                    Stroke = OxyColors.Transparent,
+                    FontSize = 9,
+                    TextColor = modelTrend.TextColor
+                };
                 modelTrend.Annotations.Add(label);
             }
+
+            modelTrend.Series.Clear();
             modelTrend.Series.Add(line);
             _plotTrend.Model = modelTrend;
 
-            // 2) 尺码 & 颜色 & 渠道 (Overview Tab)
-            var sizeAggRaw = cleaned.GroupBy(x => x.Size).Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+            // 2) 尺码销量（降序，Top10 视角）
+            var sizeAggRaw = cleaned
+                .GroupBy(x => x.Size)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
             _plotSize.Model = UiCharts.BuildBarModel(sizeAggRaw, "尺码销量 (Top10)", topN: 10);
 
-            var colorAggRaw = cleaned.GroupBy(x => x.Color).Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
+            // 3) 颜色销量（降序，Top10 视角）
+            var colorAggRaw = cleaned
+                .GroupBy(x => x.Color)
+                .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
             _plotColor.Model = UiCharts.BuildBarModel(colorAggRaw, "颜色销量 (Top10)", topN: 10);
 
+            // 4) 渠道销量（近7日，各渠道对比）
             var cutoff = DateTime.Today.AddDays(-6);
-            var channelAggRaw = cleaned.Where(x => x.Date >= cutoff)
+            var channelAggRaw = cleaned
+                .Where(x => x.Date >= cutoff)
                 .GroupBy(x => string.IsNullOrWhiteSpace(x.Channel) ? "其他渠道" : x.Channel)
                 .Select(g => (Key: g.Key, Qty: (double)g.Sum(z => z.Qty)));
             _plotChannel.Model = UiCharts.BuildBarModel(channelAggRaw, "近7日各渠道销量");
         }
 
-        // =================================================================================
-        // NEW: Dashboard Rendering Logic (Right side of Detail Tab)
-        // =================================================================================
-        private void RenderDetailDashboard()
+
+
+        private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
         {
-            if (_sales == null || _sales.Count == 0) return;
-
-            var cutoff7 = DateTime.Today.AddDays(-6);
-            var recentSales = _sales.Where(s => s.Date >= cutoff7).ToList();
-
-            // 1. Dashboard Trend (Top) - Full Width Line Chart
-            var series = Aggregations.BuildDateSeries(recentSales, 7);
-            var modelTrend = new PlotModel { Title = "全渠道销量趋势 (近7天)", PlotMargins = new OxyThickness(30, 0, 10, 20) };
-            ApplyPlotTheme(modelTrend);
-            modelTrend.Axes.Add(new DateTimeAxis { Position = AxisPosition.Bottom, StringFormat = "MM-dd", IsZoomEnabled = false, IsPanEnabled = false, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = OxyColors.WhiteSmoke });
-            modelTrend.Axes.Add(new LinearAxis { Position = AxisPosition.Left, MinimumPadding = 0, AbsoluteMinimum = 0, IsZoomEnabled = false, IsPanEnabled = false, MajorGridlineStyle = LineStyle.Solid, MajorGridlineColor = OxyColors.WhiteSmoke });
-            
-            var line = new LineSeries { StrokeThickness = 3, Color = OxyColor.Parse("#409EFF"), MarkerType = MarkerType.Circle, MarkerSize = 4, MarkerFill = OxyColors.White, MarkerStroke = OxyColor.Parse("#409EFF") };
-            foreach(var (d, q) in series) line.Points.Add(new DataPoint(DateTimeAxis.ToDouble(d), q));
-            modelTrend.Series.Add(line);
-            _dashTrend.Model = modelTrend;
-
-            // 2. Dashboard Middle: Channel Pie & Store Bar
-            // A. Channel Pie
-            var chanData = recentSales.GroupBy(x => string.IsNullOrWhiteSpace(x.Channel) ? "其他" : x.Channel)
-                .Select(g => new { Name = g.Key, Qty = g.Sum(x => x.Qty) }).OrderByDescending(x => x.Qty).ToList();
-            var modelChan = new PlotModel { Title = "渠道占比" };
-            ApplyPlotTheme(modelChan);
-            var pie = new PieSeries { InnerDiameter = 0.5, StrokeThickness = 1.0, InsideLabelPosition = 0.6, AngleSpan = 360, StartAngle = 0 };
-            foreach(var c in chanData) pie.Slices.Add(new PieSlice(c.Name, c.Qty) { IsExploded = false });
-            modelChan.Series.Add(pie);
-            _dashChannel.Model = modelChan;
-
-            // B. Store Top 5
-            var storeData = recentSales.GroupBy(x => string.IsNullOrWhiteSpace(x.Shop) ? "未知店铺" : x.Shop)
-                .Select(g => (Key: g.Key, Qty: (double)g.Sum(x => x.Qty) )).ToList();
-            _dashStore.Model = UiCharts.BuildBarModel(storeData, "店铺贡献 Top 5", topN: 5);
-
-            // 3. Dashboard Bottom: SKU Heatmap with Turnover Logic (The Core Feature)
-            RenderTurnoverHeatmap();
-        }
-
-        private void RenderTurnoverHeatmap()
-        {
-            var model = new PlotModel { Title = "SKU 销售热力与缺货预警" };
-            ApplyPlotTheme(model);
-            
-            // Data Prep
-            var sales7 = _sales.Where(s => s.Date >= DateTime.Today.AddDays(-6)).ToList();
-            if (sales7.Count == 0) return;
-
-            // Aggregate Sales 7 Days
-            var salesMap = sales7.GroupBy(x => new { C = x.Color, S = x.Size })
-                                 .ToDictionary(g => $"{g.Key.C}_{g.Key.S}", g => g.Sum(x => x.Qty));
-
-            // Aggregate Inventory (Current)
-            var invRows = _invPage?.AllRows ?? new List<InvRow>();
-            var invMap = invRows.GroupBy(x => new { C = x.Color, S = x.Size })
-                                .ToDictionary(g => $"{g.Key.C}_{g.Key.S}", g => g.Sum(x => x.Available));
-
-            // Distinct Axes
-            var allColors = sales7.Select(x => x.Color).Union(invRows.Select(x => x.Color))
-                                  .Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x).ToList();
-            var allSizes = sales7.Select(x => x.Size).Union(invRows.Select(x => x.Size))
-                                 .Where(x => !string.IsNullOrWhiteSpace(x)).Distinct();
-            
-            // Sort sizes logically (S, M, L...)
-            var sizeOrder = new List<string> { "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "F", "均码" };
-            var sortedSizes = allSizes.OrderBy(s => {
-                var idx = sizeOrder.IndexOf(s.ToUpper());
-                return idx == -1 ? 99 : idx;
-            }).ThenBy(s => s).ToList();
-
-            // Axes
-            var xa = new CategoryAxis { Position = AxisPosition.Bottom, Key = "SizeAxis" };
-            var ya = new CategoryAxis { Position = AxisPosition.Left, Key = "ColorAxis" };
-            for(int i=0; i<sortedSizes.Count; i++) xa.Labels.Add(sortedSizes[i]);
-            for(int i=0; i<allColors.Count; i++) ya.Labels.Add(allColors[i]);
-            model.Axes.Add(xa);
-            model.Axes.Add(ya);
-
-            // HeatMap Series (For Sales Volume - Green Scale)
-            var hm = new HeatMapSeries {
-                X0 = 0, X1 = sortedSizes.Count - 1,
-                Y0 = 0, Y1 = allColors.Count - 1,
-                Interpolate = false,
-                RenderMethod = HeatMapRenderMethod.Rectangles,
-                LabelFontSize = 10,
-                LabelFormatString = "0"
-            };
-            
-            // Custom Color Axis (Green Gradient)
-            model.Axes.Add(new LinearColorAxis { 
-                Position = AxisPosition.Right, 
-                Palette = OxyPalettes.Linear(OxyColors.WhiteSmoke, OxyColor.Parse("#67C23A")), // Light to Green
-                Key = "ColorScale"
-            });
-
-            var data = new double[sortedSizes.Count, allColors.Count];
-
-            // Fill Data & Detect Shortages
-            for (int x = 0; x < sortedSizes.Count; x++)
+            _channelSummary.SuspendLayout();
+            _shopTop.SuspendLayout();
+            try
             {
-                for (int y = 0; y < allColors.Count; y++)
+                _channelSummary.Controls.Clear();
+                _shopTop.Controls.Clear();
+
+                if (sales == null || sales.Count == 0)
                 {
-                    var key = $"{allColors[y]}_{sortedSizes[x]}";
-                    var sQty = salesMap.GetValueOrDefault(key, 0);
-                    var iQty = invMap.GetValueOrDefault(key, 0);
-                    
-                    data[x, y] = sQty; // Heatmap shows Sales Volume
+                    return;
+                }
 
-                    // Calculate Turnover & Shortage
-                    // ADS (Avg Daily Sales)
-                    double ads = sQty / 7.0;
-                    double days = ads > 0 ? iQty / ads : 999;
+                var cutoff = DateTime.Today.AddDays(-6);
+                var recent = sales.Where(x => x.Date >= cutoff).ToList();
+                if (recent.Count == 0)
+                {
+                    return;
+                }
 
-                    // Shortage Condition: 
-                    // 1. Out of stock AND has sales
-                    // 2. Turnover days < 7 AND has sales
-                    bool isShortage = (iQty == 0 && sQty > 0) || (days < 7 && sQty > 0);
+                // 渠道汇总
+                var channelAgg = recent
+                    .GroupBy(x => string.IsNullOrWhiteSpace(x.Channel) ? "其他渠道" : x.Channel)
+                    .Select(g => new { Channel = g.Key, Qty = g.Sum(z => z.Qty) })
+                    .OrderByDescending(x => x.Qty)
+                    .ToList();
 
-                    if (isShortage)
+                foreach (var c in channelAgg)
+                {
+                    var lbl = new Label
                     {
-                        // Draw Red Border using Annotation
-                        var rect = new RectangleAnnotation
-                        {
-                            MinimumX = x - 0.45, MaximumX = x + 0.45,
-                            MinimumY = y - 0.45, MaximumY = y + 0.45,
-                            Stroke = OxyColors.Red,
-                            StrokeThickness = 2,
-                            Fill = OxyColors.Transparent,
-                            ToolTip = $"缺货预警!\n销量: {sQty}\n库存: {iQty}\n可销: {days:0.0}天"
-                        };
-                        model.Annotations.Add(rect);
-                    }
-                }
-            }
-            
-            hm.Data = data;
-            model.Series.Add(hm);
-            
-            // Store context for interaction
-            _dashHeat.Tag = new { Colors = allColors, Sizes = sortedSizes }; 
-            _dashHeat.Model = model;
-        }
-
-        private void BindHeatmapDashboardInteraction(PlotView pv)
-        {
-            var controller = new PlotController();
-            controller.BindMouseDown(OxyMouseButton.Left, new DelegatePlotCommand<OxyMouseDownEventArgs>((view, controller, args) =>
-            {
-                var model = view.Model;
-                if (model == null) return;
-                var hm = model.Series.OfType<HeatMapSeries>().FirstOrDefault();
-                var ctx = view.Tag as dynamic; // Colors, Sizes lists
-                if (hm == null || ctx == null) return;
-
-                var sp = args.Position;
-                var result = hm.GetNearestPoint(sp, false);
-                
-                if (result != null)
-                {
-                    int x = (int)Math.Round(result.DataPoint.X);
-                    int y = (int)Math.Round(result.DataPoint.Y);
-                    
-                    var sizes = (List<string>)ctx.Sizes;
-                    var colors = (List<string>)ctx.Colors;
-
-                    if (x >= 0 && x < sizes.Count && y >= 0 && y < colors.Count)
+                        AutoSize = true,
+                        Text = $"{c.Channel} {c.Qty}",
+                        Font = UI.Subtitle,
+                        BackColor = UI.ChipBack,
+                        ForeColor = UI.Text,
+                        Padding = new Padding(6, 2, 6, 2),
+                        Margin = new Padding(4, 2, 0, 2),
+                        Cursor = Cursors.Hand
+                    };
+                    lbl.Click += (s, e) =>
                     {
-                        var s = sizes[x];
-                        var c = colors[y];
-                        
-                        // Toggle Filter
-                        if (_dashActiveFilter != null && _dashActiveFilter.Value.Color == c && _dashActiveFilter.Value.Size == s)
-                            _dashActiveFilter = null; // Deselect
-                        else
-                            _dashActiveFilter = (c, s);
+                        _boxSearch.Text = c.Channel;
+                    };
+                    _channelSummary.Controls.Add(lbl);
+                }
 
-                        ApplyDetailFilter();
-                    }
-                }
-                else
+                // 店铺 TopN
+                var shopAgg = recent
+                    .GroupBy(x => string.IsNullOrWhiteSpace(x.Shop) ? "未命名店铺" : x.Shop)
+                    .Select(g => new { Shop = g.Key, Qty = g.Sum(z => z.Qty) })
+                    .OrderByDescending(x => x.Qty)
+                    .Take(10)
+                    .ToList();
+
+                int rank = 1;
+                foreach (var s in shopAgg)
                 {
-                    _dashActiveFilter = null;
-                    ApplyDetailFilter();
+                    var lbl = new Label
+                    {
+                        AutoSize = true,
+                        Text = $"{rank}. {s.Shop} {s.Qty}",
+                        Font = UI.Subtitle,
+                        BackColor = UI.ChipBack,
+                        ForeColor = UI.Text,
+                        Padding = new Padding(6, 2, 6, 2),
+                        Margin = new Padding(4, 2, 0, 2),
+                        Cursor = Cursors.Hand
+                    };
+                    lbl.Click += (sender, e) =>
+                    {
+                        _boxSearch.Text = s.Shop;
+                    };
+                    _shopTop.Controls.Add(lbl);
+                    rank++;
                 }
-            }));
-            
-            pv.Controller = controller;
+            }
+            finally
+            {
+                _channelSummary.ResumeLayout();
+                _shopTop.ResumeLayout();
+            }
         }
 
-        private void ApplyDetailFilter()
+        private void ApplyFilter(string q)
         {
-            var q = _boxSearch.Text?.Trim() ?? string.Empty;
-            
-            // Update Chip Display
-            _filterChips.Controls.Clear();
-            if (_dashActiveFilter != null)
+            q = (q ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(q))
             {
-                var chip = new Label { 
-                    Text = $"{_dashActiveFilter.Value.Color} / {_dashActiveFilter.Value.Size} (点击热力图取消)", 
-                    AutoSize = true, BackColor = UI.Red, ForeColor = Color.White, Padding = new Padding(4) 
-                };
-                chip.Click += (s,e) => { _dashActiveFilter = null; ApplyDetailFilter(); };
-                _filterChips.Controls.Add(chip);
+                _binding.DataSource = new BindingList<SaleRow>(_gridMaster);
+                _grid.ClearSelection();
+                return;
             }
 
-            // Filter Grid
-            var list = _gridMaster.AsEnumerable();
-            
-            // 1. Search Box
-            if (!string.IsNullOrWhiteSpace(q))
+            string ToText(SaleRow x)
             {
-                list = UiSearch.FilterAllTokens(list, x => x.SearchText, q);
+                return x?.SearchText ?? string.Empty;
             }
 
-            // 2. Heatmap Filter
-            if (_dashActiveFilter != null)
-            {
-                list = list.Where(x => x.颜色 == _dashActiveFilter.Value.Color && x.尺码 == _dashActiveFilter.Value.Size);
-            }
+            var filtered = UiSearch
+                .FilterAllTokens(_gridMaster, ToText, q)
+                .ToList();
 
-            _binding.DataSource = new BindingList<SaleRow>(list.ToList());
+            _binding.DataSource = new BindingList<SaleRow>(filtered);
             _grid.ClearSelection();
         }
+
 
         private void ExportExcel()
         {
@@ -1263,14 +1253,39 @@ namespace StyleWatcherWin
             var path = Path.Combine(saveDir, $"StyleWatcher_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
 
             using var wb = new XLWorkbook();
+
+            // 报表内容交给 ResultExporter 构建：
+            // 1) 销售明细（当前主表 _gridMaster）
+            // 2) 库存明细（库存页 InventoryTabPage 内部的 InvRow 列表）
+            // 3) 唯品库存明细（_vipAll 中的原始唯品库存数据）
             IReadOnlyList<InvRow> invRows = Array.Empty<InvRow>();
-            if (_invPage != null) invRows = _invPage.AllRows;
-            ResultExporter.FillWorkbook(wb, _gridMaster, invRows, _vipAll);
+            if (_invPage != null)
+            {
+                invRows = _invPage.AllRows;
+            }
+
+            ResultExporter.FillWorkbook(
+                wb,
+                _gridMaster,
+                invRows,
+                _vipAll
+            );
+
             wb.SaveAs(path);
             try { System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{path}\""); } catch { }
         }
+    
 
-        private async Task LoadPriceAsync(string styleName)
+        
+
+        
+
+        
+
+        
+    
+
+        private async System.Threading.Tasks.Task LoadPriceAsync(string styleName)
         {
             try
             {
@@ -1282,32 +1297,42 @@ namespace StyleWatcherWin
                     return;
                 }
 
-                using (var http = new HttpClient())
+                using (var http = new System.Net.Http.HttpClient())
                 {
-                    http.Timeout = TimeSpan.FromSeconds(5);
-                    var url = "http://192.168.40.97:8002/lookup?name=" + Uri.EscapeDataString(styleName);
+                    http.Timeout = System.TimeSpan.FromSeconds(5);
+                    var url = "http://192.168.40.97:8002/lookup?name=" + System.Uri.EscapeDataString(styleName);
                     var resp = await http.GetAsync(url);
                     resp.EnsureSuccessStatusCode();
                     var json = await resp.Content.ReadAsStringAsync();
 
-                    using (var doc = JsonDocument.Parse(json))
+                    using (var doc = System.Text.Json.JsonDocument.Parse(json))
                     {
                         var arr = doc.RootElement;
-                        if (arr.ValueKind == JsonValueKind.Array && arr.GetArrayLength() > 0)
+                        if (arr.ValueKind == System.Text.Json.JsonValueKind.Array && arr.GetArrayLength() > 0)
                         {
                             var first = arr[0];
-                            string grade = null, minp = null, brk = null;
-                            JsonElement tmp;
-                            if (first.TryGetProperty("grade", out tmp)) grade = tmp.ToString();
-                            if (first.TryGetProperty("min_price_one", out tmp)) minp = tmp.ToString();
-                            if (first.TryGetProperty("breakeven_one", out tmp)) brk = tmp.ToString();
+
+                            string grade = null;
+                            string minp = null;
+                            string brk = null;
+
+                            System.Text.Json.JsonElement tmp;
+                            if (first.TryGetProperty("grade", out tmp) && tmp.ValueKind == System.Text.Json.JsonValueKind.String)
+                                grade = tmp.GetString();
+                            if (first.TryGetProperty("min_price_one", out tmp) && tmp.ValueKind == System.Text.Json.JsonValueKind.String)
+                                minp = tmp.GetString();
+                            if (first.TryGetProperty("breakeven_one", out tmp) && tmp.ValueKind == System.Text.Json.JsonValueKind.String)
+                                brk = tmp.GetString();
+
                             SetKpiValue(_kpiGrade, grade ?? "—");
                             SetKpiValue(_kpiMinPrice, minp ?? "—");
                             SetKpiValue(_kpiBreakeven, brk ?? "—");
                         }
                         else
                         {
-                            SetKpiValue(_kpiGrade, "—"); SetKpiValue(_kpiMinPrice, "—"); SetKpiValue(_kpiBreakeven, "—");
+                            SetKpiValue(_kpiGrade, "—");
+                            SetKpiValue(_kpiMinPrice, "—");
+                            SetKpiValue(_kpiBreakeven, "—");
                         }
                     }
                 }
@@ -1315,43 +1340,82 @@ namespace StyleWatcherWin
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
-                SetKpiValue(_kpiGrade, "—"); SetKpiValue(_kpiMinPrice, "—"); SetKpiValue(_kpiBreakeven, "—");
+                SetKpiValue(_kpiGrade, "—");
+                SetKpiValue(_kpiMinPrice, "—");
+                SetKpiValue(_kpiBreakeven, "—");
             }
         }
 
-        // === VIP INTEGRATION BEGIN ===
-        // Vip inventory page (virtualized)
-        private TabPage? _vipInvTab;
-        private readonly DataGridView _vipGrid = new()
-        {
-            Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AllowUserToDeleteRows = false,
-            RowHeadersVisible = false, VirtualMode = true, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
-        };
-        private readonly TextBox _vipSearchBox = new();
-        private readonly System.Windows.Forms.Timer _vipSearchDebounce = new() { Interval = 200 };
-        private readonly Label _vipStatus = new() { AutoSize = true, Margin = new Padding(8, 8, 0, 0), ForeColor = UI.MutedText };
-        private readonly List<Dictionary<string, object?>> _vipAll = new();
-        private List<Dictionary<string, object?>> _vipView = new();
-        private readonly List<string> _vipColumns = new();
-        private string? _vipSortColumn;
-        private bool _vipSortAscending = true;
-        private bool _vipLoaded;
-        private bool _vipLoading;
-        private static readonly HttpClient _vipHttp = new();
 
+        
+
+
+// === VIP INTEGRATION BEGIN ===
+// ===== 提取自 ResultForm.cs：唯品库存 页面相关代码（不多不少，按调用逻辑排序） =====
+// 说明：本文件聚合了字段声明、UI 构建与事件绑定、数据加载/解析/绑定、虚拟表格回显、排序与搜索过滤等。
+// 原始位置见各段注释（以“源：ResultForm.cs [Lxx-Lyy]”标注）。
+
+// ---------- 一、字段声明 ----------
+// 源：ResultForm.cs [L40-L70]
+// 作用：唯品库存页的控件、状态与缓存。
+/* begin: fields */
+// Vip inventory page (virtualized)
+private TabPage? _vipInvTab;
+private readonly DataGridView _vipGrid = new()
+{
+    Dock = DockStyle.Fill,
+    ReadOnly = true,
+    AllowUserToAddRows = false,
+    AllowUserToDeleteRows = false,
+    RowHeadersVisible = false,
+    VirtualMode = true,
+    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
+};
+private readonly TextBox _vipSearchBox = new();
+private readonly System.Windows.Forms.Timer _vipSearchDebounce = new() { Interval = 200 };
+private readonly Label _vipStatus = new()
+{
+    AutoSize = true,
+    Margin = new Padding(8, 8, 0, 0),
+    ForeColor = UI.MutedText
+};
+private readonly List<Dictionary<string, object?>> _vipAll = new();
+private List<Dictionary<string, object?>> _vipView = new();
+private readonly List<string> _vipColumns = new();
+private string? _vipSortColumn;
+private bool _vipSortAscending = true;
+private bool _vipLoaded;
+private bool _vipLoading;
+private static readonly HttpClient _vipHttp = new();
+/* end: fields */
+
+// ---------- 二、UI 构建与事件绑定（在 BuildTabs 中） ----------
+// 源：ResultForm.cs [L384-L451] + [附加 L1-L56]
+// 作用：创建“唯品库存”Tab 页；绑定 CellValueNeeded/ColumnHeaderMouseClick；
+//      搜索框防抖 -> ApplyVipFilter；Tab 切换 -> EnsureVipInventoryLoadedAsync；刷新按钮 -> ForceReloadVipInventoryAsync。
+/* begin: BuildTabs wiring */ // wrapped into BuildVipUI()
         private void BuildVipUI()
         {
             _vipInvTab = new TabPage("唯品库存");
-            var vipLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+            var vipLayout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2
+            };
             vipLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             vipLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             
-            var vipTop = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3 };
+            var vipTop = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3
+            };
             vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             vipTop.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             
-            _vipSearchBox.Dock = DockStyle.Fill;
+                        _vipSearchBox.Dock = DockStyle.Fill;
             _vipSearchBox.MinimumSize = new Size(0, 30);
             _vipSearchBox.Margin = new Padding(0, 4, 0, 4);
             _vipSearchBox.PlaceholderText = "搜索（款式名/颜色/尺码等，空格分隔多条件）";
@@ -1367,6 +1431,7 @@ namespace StyleWatcherWin
             vipRefresh.Margin = new Padding(8, 4, 0, 4);
             vipRefresh.Click += async (s, e) => await ForceReloadVipInventoryAsync();
             vipTop.Controls.Add(vipRefresh, 2, 0);
+
             
             vipLayout.Controls.Add(vipTop, 0, 0);
             vipLayout.Controls.Add(_vipGrid, 0, 1);
@@ -1376,170 +1441,388 @@ namespace StyleWatcherWin
             
             _vipGrid.CellValueNeeded += VipGrid_CellValueNeeded;
             _vipGrid.ColumnHeaderMouseClick += VipGrid_ColumnHeaderMouseClick;
+            
             _vipSearchDebounce.Tick += (s, e) => { _vipSearchDebounce.Stop(); ApplyVipFilter(_vipSearchBox.Text); };
-            _tabs.SelectedIndexChanged += async (s, e) => { if (_tabs.SelectedTab == _vipInvTab) await EnsureVipInventoryLoadedAsync(); };
-        }
-
-        private async Task EnsureVipInventoryLoadedAsync()
-        {
-            if (_vipLoaded || _vipLoading) return;
-            await ForceReloadVipInventoryAsync();
-        }
-
-        private async Task ForceReloadVipInventoryAsync()
-        {
-            if (_vipLoading) return;
-            _vipLoading = true; _vipStatus.Text = "唯品库存加载中...";
-
-            try
+            
+            _tabs.SelectedIndexChanged += async (s, e) =>
             {
-                var rows = await FetchVipInventoryAsync();
-                _vipAll.Clear();
-                if (rows != null) _vipAll.AddRange(rows);
-                _vipView = _vipAll.ToList();
-                BuildVipColumnsAndBind();
-                _vipLoaded = true;
-                _vipStatus.Text = _vipView.Count == 0 ? "未获取到唯品库存数据" : $"共 {_vipView.Count} 条记录";
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
-                var msg = GetVipErrorMessage(ex);
-                _vipAll.Clear();
-                _vipView = new List<Dictionary<string, object?>> { new() { ["错误"] = msg } };
-                BuildVipColumnsAndBind();
-                _vipLoaded = false;
-                _vipStatus.Text = msg;
-            }
-            finally { _vipLoading = false; }
+                if (_tabs.SelectedTab == _vipInvTab) await EnsureVipInventoryLoadedAsync();
+            };
         }
+/* end: BuildTabs wiring */
+
+// ---------- 三、加载/刷新 & 数据获取与解析 ----------
+// 源：ResultForm.cs [L65-L104] + [L106-L83]
+/* begin: load & fetch */
+private async Task EnsureVipInventoryLoadedAsync()
+{
+    if (_vipLoaded || _vipLoading) return;
+    await ForceReloadVipInventoryAsync();
+}
+
+private async Task ForceReloadVipInventoryAsync()
+{
+    if (_vipLoading) return;
+
+    _vipLoading = true;
+    _vipStatus.Text = "唯品库存加载中...";
+
+    try
+    {
+        var rows = await FetchVipInventoryAsync();
+        _vipAll.Clear();
+        if (rows != null) _vipAll.AddRange(rows);
+        _vipView = _vipAll.ToList();
+
+        BuildVipColumnsAndBind();
+        _vipLoaded = true;
+
+        if (_vipView.Count == 0)
+        {
+            _vipStatus.Text = "未获取到唯品库存数据";
+        }
+        else
+        {
+            _vipStatus.Text = $"共 {_vipView.Count} 条记录";
+        }
+    }
+    catch (Exception ex)
+    {
+        AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
+        var msg = GetVipErrorMessage(ex);
+        _vipAll.Clear();
+        _vipView = new List<Dictionary<string, object?>>
+        {
+            new() { ["错误"] = msg }
+        };
+        BuildVipColumnsAndBind();
+        _vipLoaded = false;
+        _vipStatus.Text = msg;
+    }
+    finally
+    {
+        _vipLoading = false;
+    }
+}
+
 
         private static string GetVipErrorMessage(Exception ex)
         {
-            if (ex is HttpRequestException) return "唯品库存接口网络 / 连接错误，请检查网络或服务器地址";
-            if (ex is TaskCanceledException || ex is OperationCanceledException) return "唯品库存接口请求超时，请稍后重试";
-            if (ex is JsonException) return "唯品库存接口返回数据格式异常，接口可能已变更";
+            if (ex is HttpRequestException)
+            {
+                return "唯品库存接口网络 / 连接错误，请检查网络或服务器地址";
+            }
+
+            if (ex is System.Threading.Tasks.TaskCanceledException || ex is OperationCanceledException)
+            {
+                return "唯品库存接口请求超时，请稍后重试";
+            }
+
+            if (ex is JsonException)
+            {
+                return "唯品库存接口返回数据格式异常，接口可能已变更";
+            }
+
             return "唯品库存加载失败：" + ex.Message;
         }
 
-        private async Task<List<Dictionary<string, object?>>> FetchVipInventoryAsync()
+private async Task<List<Dictionary<string, object?>>> FetchVipInventoryAsync()
+{
+    var url = "http://192.168.40.97:8001/inventory";
+
+    using var resp = await _vipHttp.GetAsync(url);
+    resp.EnsureSuccessStatusCode();
+    var json = await resp.Content.ReadAsStringAsync();
+
+    return await Task.Run(() =>
+    {
+        var list = new List<Dictionary<string, object?>>();
+        using var doc = JsonDocument.Parse(json);
+
+        if (doc.RootElement.ValueKind == JsonValueKind.Array)
         {
-            var url = "http://192.168.40.97:8001/inventory";
-            using var resp = await _vipHttp.GetAsync(url);
-            resp.EnsureSuccessStatusCode();
-            var json = await resp.Content.ReadAsStringAsync();
-            return await Task.Run(() =>
+            foreach (var elem in doc.RootElement.EnumerateArray())
             {
-                var list = new List<Dictionary<string, object?>>();
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                var dict = new Dictionary<string, object?>();
+                foreach (var prop in elem.EnumerateObject())
                 {
-                    foreach (var elem in doc.RootElement.EnumerateArray())
+                    object? val = prop.Value.ValueKind switch
                     {
-                        var dict = new Dictionary<string, object?>();
-                        foreach (var prop in elem.EnumerateObject())
-                        {
-                            object? val = prop.Value.ValueKind switch
-                            {
-                                JsonValueKind.String => prop.Value.GetString(),
-                                JsonValueKind.Number when prop.Value.TryGetInt64(out var iv) => iv,
-                                JsonValueKind.Number when prop.Value.TryGetDouble(out var dv) => dv,
-                                JsonValueKind.True or JsonValueKind.False => prop.Value.GetBoolean(),
-                                JsonValueKind.Null => null,
-                                _ => prop.Value.ToString()
-                            };
-                            dict[prop.Name] = val;
-                        }
-                        list.Add(dict);
-                    }
+                        JsonValueKind.String => prop.Value.GetString(),
+                        JsonValueKind.Number when prop.Value.TryGetInt64(out var iv) => iv,
+                        JsonValueKind.Number when prop.Value.TryGetDouble(out var dv) => dv,
+                        JsonValueKind.True or JsonValueKind.False => prop.Value.GetBoolean(),
+                        JsonValueKind.Null => null,
+                        _ => prop.Value.ToString()
+                    };
+                    dict[prop.Name] = val;
                 }
-                return list;
-            });
-        }
-
-        private void BuildVipColumnsAndBind()
-        {
-            _vipGrid.SuspendLayout();
-            try
-            {
-                _vipGrid.Columns.Clear(); _vipColumns.Clear();
-                if (_vipView == null || _vipView.Count == 0) { _vipGrid.RowCount = 0; return; }
-                _vipColumns.Add("product_original_code"); _vipColumns.Add("白胚可用数");
-                _vipColumns.Add("进货仓库存"); _vipColumns.Add("成品占用数"); _vipColumns.Add("__sum");
-
-                foreach (var col in _vipColumns)
-                {
-                    var header = col switch { "product_original_code" => "款式名", "白胚可用数" => "白胚可用数", "进货仓库存" => "进货仓库存", "成品占用数" => "成品占用数", "__sum" => "可用数汇总", _ => col };
-                    _vipGrid.Columns.Add(col, header);
-                }
-                _vipGrid.RowCount = _vipView.Count;
+                list.Add(dict);
             }
-            finally { _vipGrid.ResumeLayout(); }
         }
 
-        private void VipGrid_CellValueNeeded(object? sender, DataGridViewCellValueEventArgs e)
+        return list;
+    });
+}
+/* end: load & fetch */
+
+// ---------- 四、列定义与绑定（虚拟模式） ----------
+// 源：ResultForm.cs [L85-L106] + [L35-L76]
+/* begin: columns & bind */
+/// <summary>
+/// 固定列顺序：款式名 / 白胚可用数 / 进货仓库存 / 成品占用数 / 可用数汇总
+/// </summary>
+private void BuildVipColumnsAndBind()
+{
+    _vipGrid.SuspendLayout();
+    try
+    {
+        _vipGrid.Columns.Clear();
+        _vipColumns.Clear();
+
+        if (_vipView == null || _vipView.Count == 0)
         {
-            if (_vipView == null || e.RowIndex < 0 || e.RowIndex >= _vipView.Count || e.ColumnIndex < 0 || e.ColumnIndex >= _vipColumns.Count) return;
-            var row = _vipView[e.RowIndex];
-            var key = _vipColumns[e.ColumnIndex];
-            if (key == "__sum") { e.Value = GetVipNumber(row, "白胚可用数", "白坯可用数") + GetVipNumber(row, "进货仓库存") + GetVipNumber(row, "成品占用数"); return; }
-            if (key == "白胚可用数") { if (!row.TryGetValue("白胚可用数", out var val) || val == null) row.TryGetValue("白坯可用数", out val); e.Value = val ?? 0; return; }
-            if (row.TryGetValue(key, out var v)) e.Value = v;
+            _vipGrid.RowCount = 0;
+            return;
         }
 
-        private void VipGrid_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
+        _vipColumns.Add("product_original_code");
+        _vipColumns.Add("白胚可用数");
+        _vipColumns.Add("进货仓库存");
+        _vipColumns.Add("成品占用数");
+        _vipColumns.Add("__sum");
+
+        foreach (var col in _vipColumns)
         {
-            if (_vipView == null || _vipView.Count <= 1 || e.ColumnIndex < 0 || e.ColumnIndex >= _vipColumns.Count) return;
-            var col = _vipColumns[e.ColumnIndex];
-            if (_vipSortColumn == col) _vipSortAscending = !_vipSortAscending; else { _vipSortColumn = col; _vipSortAscending = true; }
-            _vipView.Sort((a, b) =>
+            var header = col switch
             {
-                var ka = GetVipSortKey(a, col); var kb = GetVipSortKey(b, col);
-                if (ka == null && kb == null) return 0; if (ka == null) return -1; if (kb == null) return 1;
-                return ka.CompareTo(kb);
-            });
-            if (!_vipSortAscending) _vipView.Reverse();
-            _vipGrid.Invalidate();
+                "product_original_code" => "款式名",
+                "白胚可用数" => "白胚可用数",
+                "进货仓库存" => "进货仓库存",
+                "成品占用数" => "成品占用数",
+                "__sum" => "可用数汇总",
+                _ => col
+            };
+
+            _vipGrid.Columns.Add(col, header);
         }
 
-        private IComparable? GetVipSortKey(Dictionary<string, object?>? row, string col)
-        {
-            if (row == null) return null;
-            if (col == "__sum") return GetVipNumber(row, "白胚可用数", "白坯可用数") + GetVipNumber(row, "进货仓库存") + GetVipNumber(row, "成品占用数");
-            if (col == "白胚可用数") return GetVipNumber(row, "白胚可用数", "白坯可用数");
-            if (!row.TryGetValue(col, out var val) || val == null) return null;
-            if (val is int i) return i; if (val is double d) return d;
-            return val.ToString();
-        }
+        _vipGrid.RowCount = _vipView.Count;
+    }
+    finally
+    {
+        _vipGrid.ResumeLayout();
+    }
+}
+/* end: columns & bind */
 
-        private double GetVipNumber(Dictionary<string, object?> row, params string[] keys)
-        {
-            foreach (var key in keys) { if (row.TryGetValue(key, out var val) && val != null) { if (val is int i) return i; if (val is double d) return d; if (double.TryParse(val.ToString(), out var dv)) return dv; } }
-            return 0d;
-        }
+// ---------- 五、虚拟表格回显（CellValueNeeded） ----------
+// 源：ResultForm.cs [L78-L103] + [L1-L19]
+/* begin: virtual grid value */
+private void VipGrid_CellValueNeeded(object? sender, DataGridViewCellValueEventArgs e)
+{
+    if (_vipView == null) return;
+    if (e.RowIndex < 0 || e.RowIndex >= _vipView.Count) return;
+    if (e.ColumnIndex < 0 || e.ColumnIndex >= _vipColumns.Count) return;
 
-        private void ApplyVipFilter(string? keyword)
-        {
-            if (_vipAll == null || _vipAll.Count == 0) _vipView = new List<Dictionary<string, object?>>();
-            else if (string.IsNullOrWhiteSpace(keyword)) _vipView = _vipAll.ToList();
-            else
-            {
-                var parts = keyword.Split(new[] { ' ', ',', '+' }, StringSplitOptions.RemoveEmptyEntries).Select(p => p.ToLowerInvariant()).ToArray();
-                _vipView = _vipAll.Where(row => { var text = string.Join(" ", row.Values.Select(v => v?.ToString() ?? "")).ToLowerInvariant(); return parts.All(p => text.Contains(p)); }).ToList();
-            }
-            BuildVipColumnsAndBind(); _vipGrid.Invalidate();
-        }
+    var row = _vipView[e.RowIndex];
+    if (row == null) return;
 
-        private sealed class SaleRow
+    var key = _vipColumns[e.ColumnIndex];
+
+    if (key == "__sum")
+    {
+        var sum =
+            GetVipNumber(row, "白胚可用数", "白坯可用数") +
+            GetVipNumber(row, "进货仓库存") +
+            GetVipNumber(row, "成品占用数");
+        e.Value = sum;
+        return;
+    }
+
+    if (key == "成品占用数")
+    {
+        e.Value = GetVipNumber(row, "成品占用数");
+        return;
+    }
+
+    if (key == "白胚可用数")
+    {
+        if (!row.TryGetValue("白胚可用数", out var val) || val == null)
+            row.TryGetValue("白坯可用数", out val);
+        e.Value = val ?? 0;
+        return;
+    }
+
+    if (key == "product_original_code")
+    {
+        row.TryGetValue("product_original_code", out var val);
+        e.Value = val;
+        return;
+    }
+
+    if (row.TryGetValue(key, out var v))
+    {
+        e.Value = v;
+    }
+}
+/* end: virtual grid value */
+
+// ---------- 六、列头点击排序 ----------
+// 源：ResultForm.cs [L22-L54] + [L56-L89]
+/* begin: sorting */
+private void VipGrid_ColumnHeaderMouseClick(object? sender, DataGridViewCellMouseEventArgs e)
+{
+    if (_vipView == null || _vipView.Count <= 1) return;
+    if (e.ColumnIndex < 0 || e.ColumnIndex >= _vipColumns.Count) return;
+
+    var col = _vipColumns[e.ColumnIndex];
+
+    if (_vipSortColumn == col) _vipSortAscending = !_vipSortAscending;
+    else { _vipSortColumn = col; _vipSortAscending = true; }
+
+    _vipView.Sort((a, b) =>
+    {
+        var ka = GetVipSortKey(a, col);
+        var kb = GetVipSortKey(b, col);
+
+        if (ka == null && kb == null) return 0;
+        if (ka == null) return -1;
+        if (kb == null) return 1;
+        return ka.CompareTo(kb);
+    });
+
+    if (!_vipSortAscending) _vipView.Reverse();
+
+    _vipGrid.Invalidate();
+}
+
+private IComparable? GetVipSortKey(Dictionary<string, object?>? row, string col)
+{
+    if (row == null) return null;
+
+    if (col == "__sum")
+    {
+        return
+            GetVipNumber(row, "白胚可用数", "白坯可用数") +
+            GetVipNumber(row, "进货仓库存") +
+            GetVipNumber(row, "成品占用数");
+    }
+
+    if (col == "白胚可用数") return GetVipNumber(row, "白胚可用数", "白坯可用数");
+    if (col == "进货仓库存") return GetVipNumber(row, "进货仓库存");
+    if (col == "成品占用数") return GetVipNumber(row, "成品占用数");
+
+    if (!row.TryGetValue(col, out var val) || val == null) return null;
+
+    switch (val)
+    {
+        case int i: return i;
+        case long l: return l;
+        case double d: return d;
+    }
+
+    if (double.TryParse(val.ToString(), out var dv)) return dv;
+
+    return val.ToString();
+}
+
+private double GetVipNumber(Dictionary<string, object?> row, params string[] keys)
+{
+    foreach (var key in keys)
+    {
+        if (!row.TryGetValue(key, out var val) || val == null)
+            continue;
+
+        switch (val)
         {
-            public string 日期 { get; set; } = string.Empty;
-            public string 渠道 { get; set; } = string.Empty;
-            public string 店铺 { get; set; } = string.Empty;
-            public string 款式 { get; set; } = string.Empty;
-            public string 颜色 { get; set; } = string.Empty;
-            public string 尺码 { get; set; } = string.Empty;
-            public int 数量 { get; set; }
-            public string SearchText { get; set; } = string.Empty;
+            case int i: return i;
+            case long l: return l;
+            case double d: return d;
+            case float f: return f;
+            case string s when double.TryParse(s, out var dv): return dv;
         }
     }
+
+    return 0d;
+}
+/* end: sorting */
+
+// ---------- 七、本地过滤（搜索框） ----------
+// 源：ResultForm.cs [L52-L101]
+/* begin: filter */
+/// <summary>
+/// 多关键词 AND 搜索（空格/逗号/加号等拆分），在整行文本上匹配。
+/// 不重新请求接口，仅针对本地缓存数据过滤。
+/// </summary>
+private void ApplyVipFilter(string? keyword)
+{
+    if (_vipAll == null || _vipAll.Count == 0)
+    {
+        _vipView = new List<Dictionary<string, object?>>();
+    }
+    else
+    {
+        if (string.IsNullOrWhiteSpace(keyword))
+        {
+            _vipView = _vipAll.ToList();
+        }
+        else
+        {
+            var parts = keyword
+                .Split(new[] { ' ', '　', ',', '，', '+', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => p.Trim())
+                .Where(p => p.Length > 0)
+                .Select(p => p.ToLowerInvariant())
+                .ToArray();
+
+            if (parts.Length == 0)
+            {
+                _vipView = _vipAll.ToList();
+            }
+            else
+            {
+                _vipView = _vipAll
+                    .Where(row =>
+                    {
+                        if (row == null) return false;
+
+                        var text = string.Join(" ", row.Values
+                            .Select(v => v?.ToString() ?? string.Empty))
+                            .ToLowerInvariant();
+
+                        return parts.All(p => text.Contains(p));
+                    })
+                    .ToList();
+            }
+        }
+    }
+
+    BuildVipColumnsAndBind();
+    _vipGrid.Invalidate();
+}
+/* end: filter */
+
+
+    // 行缓存：销售明细行 + 预计算的搜索文本，避免每次过滤时通过反射拼接字符串。
+    private sealed class SaleRow
+    {
+        public string 日期   { get; set; } = string.Empty;
+        public string 渠道   { get; set; } = string.Empty;
+        public string 店铺   { get; set; } = string.Empty;
+        public string 款式   { get; set; } = string.Empty;
+        public string 颜色   { get; set; } = string.Empty;
+        public string 尺码   { get; set; } = string.Empty;
+        public int    数量   { get; set; }
+
+        /// <summary>
+        /// 用于本地搜索的预计算字段，包含日期/渠道/店铺/款式/尺码/颜色/数量等信息。
+        /// </summary>
+        public string SearchText { get; set; } = string.Empty;
+    }
+
+// ===== 结束 =====
+// === VIP INTEGRATION END ===
+}
+
 }

@@ -67,7 +67,7 @@ namespace StyleWatcherWin
             cell.Font = UI.Body;
             cell.WrapMode = DataGridViewTriState.False;
 
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(252, 253, 255);  // 更加柔和的斑马纹底色
 
             grid.GridColor = Color.FromArgb(235, 238, 244);
             grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
