@@ -185,7 +185,7 @@ namespace StyleWatcherWin
         private readonly CheckBox _skuModeSales = new();
         private readonly CheckBox _skuModeInventory = new();
         private bool _skuShowInventory = false;
-        private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer() { Interval = 200 };
+        private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer { Interval = 200 };
 
 
         // Inventory page
@@ -488,22 +488,53 @@ content.Controls.Add(_kpi, 0, 0);
 
         private void BuildTabs()
         {
-                        // 概览
+            // 概览
             BuildOverviewTab();
 
-// 销售明细
-            var detail = new TabPage("销售明细") { BackColor = UI.Background };
-            var panel = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=3,ColumnCount=1,Padding=new Padding(12)};
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            panel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+            // 销售明细
+            BuildDetailTab();
 
+            // 库存页
+            _invPage = new InventoryTabPage(_cfg);
+            _invPage.SummaryUpdated += OnInventorySummary;
+            _tabs.TabPages.Add(_invPage);
+
+            // 唯品库存
+            BuildVipUI();
+        }
+
+        /// <summary>
+        /// 构建“销售明细”页：顶部搜索 + 汇总行 + 左侧明细表 + 右侧可视化仪表盘。
+        /// </summary>
+        private void BuildDetailTab()
+        {
+            var detail = new TabPage("销售明细")
+            {
+                BackColor = UI.Background
+            };
+
+            var panel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 3,
+                ColumnCount = 1,
+                Padding = new Padding(12)
+            };
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));   // 搜索框
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));   // 汇总行
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // 主区域：表格 + 仪表盘
+
+            // 顶部搜索框
             _boxSearch.Dock = DockStyle.Fill;
             _boxSearch.MinimumSize = new Size(0, 30);
             _boxSearch.Margin = new Padding(0, 4, 0, 4);
             _boxSearch.PlaceholderText = "搜索（日期/渠道/店铺/款式/尺码/颜色/数量）";
             UI.StyleInput(_boxSearch);
-            _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
+            _boxSearch.TextChanged += (s, e) =>
+            {
+                _searchDebounce.Stop();
+                _searchDebounce.Start();
+            };
             panel.Controls.Add(_boxSearch, 0, 0);
 
             // 汇总行：左侧过滤 Chip，中间渠道汇总，右侧 Top 店铺
@@ -539,25 +570,49 @@ content.Controls.Add(_kpi, 0, 0);
             summaryRow.Controls.Add(_filterChips, 0, 0);
             summaryRow.Controls.Add(_channelSummary, 1, 0);
             summaryRow.Controls.Add(_shopTop, 2, 0);
-
             panel.Controls.Add(summaryRow, 0, 1);
 
-            _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
-            _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.DisplayedCells;
-            _grid.AutoSizeRowsMode=DataGridViewAutoSizeRowsMode.DisplayedCells;
-            _grid.DataSource=_binding;
+            // 底部主区域：左侧销售明细表格，右侧仪表盘
+            var mainRow = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 1,
+                ColumnCount = 2,
+                Margin = new Padding(0, 4, 0, 0)
+            };
+            mainRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55)); // 左侧表格
+            mainRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45)); // 右侧可视化
+
+            // 销售明细表格（沿用原来的设置）
             UiGrid.Optimize(_grid);
-            panel.Controls.Add(_grid,0,2);
+            _grid.Dock = DockStyle.Fill;
+            _grid.ReadOnly = true;
+            _grid.RowHeadersVisible = false;
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+            _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCells;
+            _grid.AllowUserToAddRows = false;
+            _grid.AllowUserToDeleteRows = false;
+            _grid.DataSource = _binding;
+
+            mainRow.Controls.Add(_grid, 0, 0);
+
+            // 右侧仪表盘（趋势 / 渠道 / 店铺 / SKU 热力图）
+            var dashboard = BuildDetailDashboardLayout();
+            mainRow.Controls.Add(dashboard, 1, 0);
+
+            panel.Controls.Add(mainRow, 0, 2);
+
             detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
 
-            // 库存页
-            _invPage = new InventoryTabPage(_cfg);
-            _invPage.SummaryUpdated += OnInventorySummary;
-            _tabs.TabPages.Add(_invPage);
-        
-            BuildVipUI();
-}
+            // 搜索防抖：统一在这里挂事件
+            _searchDebounce.Interval = 200;
+            _searchDebounce.Tick += (s, e) =>
+            {
+                _searchDebounce.Stop();
+                ApplyFilter(_boxSearch.Text);
+            };
+        }
 
         // 概览
         private void BuildOverviewTab()
