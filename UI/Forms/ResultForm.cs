@@ -542,12 +542,31 @@ content.Controls.Add(_kpi, 0, 0);
 
             panel.Controls.Add(summaryRow, 0, 1);
 
-            _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
-            _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.DisplayedCells;
-            _grid.AutoSizeRowsMode=DataGridViewAutoSizeRowsMode.DisplayedCells;
-            _grid.DataSource=_binding;
+            // 明细区域：左侧表格 + 右侧仪表盘
+            _grid.Dock = DockStyle.Fill;
+            _grid.ReadOnly = true;
+            _grid.AllowUserToAddRows = false;
+            _grid.AllowUserToDeleteRows = false;
+            _grid.RowHeadersVisible = false;
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+            _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCells;
+            _grid.DataSource = _binding;
             UiGrid.Optimize(_grid);
-            panel.Controls.Add(_grid,0,2);
+
+            var detailRow = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 1,
+                ColumnCount = 2,
+                Margin = new Padding(0, 4, 0, 0)
+            };
+            detailRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+            detailRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+
+            detailRow.Controls.Add(_grid, 0, 0);
+            detailRow.Controls.Add(BuildDetailDashboardLayout(), 1, 0);
+
+            panel.Controls.Add(detailRow, 0, 2);
             detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
 
