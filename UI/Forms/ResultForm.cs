@@ -171,14 +171,21 @@ namespace StyleWatcherWin
                 // Status
         private readonly Label _status = new();
 
-// Detail
+        // Detail
         private readonly DataGridView _grid = new();
         private readonly BindingSource _binding = new();
         private readonly TextBox _boxSearch = new();
         private readonly FlowLayoutPanel _filterChips = new();
         private readonly FlowLayoutPanel _channelSummary = new();
         private readonly FlowLayoutPanel _shopTop = new();
-        private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer() { Interval = 200 };
+        private readonly PlotView _detailTrend = new();
+        private readonly PlotView _detailChannelDonut = new();
+        private readonly PlotView _detailShopBar = new();
+        private readonly PlotView _detailSkuHeat = new();
+        private readonly CheckBox _skuModeInventory = new();
+        private bool _skuShowInventory = false;
+        private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer { Interval = 200 };
+
 
         // Inventory page
         private InventoryTabPage? _invPage;
@@ -1379,7 +1386,7 @@ private void RenderSkuHeatmap()
         {
             try
             {
-                var rows = _invPage.AllRows;
+                var rows = _invPage!.AllRows;
                 if (rows != null)
                 {
                     foreach (var r in rows)
@@ -1714,9 +1721,9 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                         {
                             var first = arr[0];
 
-                            string grade = null;
-                            string minp = null;
-                            string brk = null;
+                            string? grade = null;
+                            string? minp = null;
+                            string? brk = null;
 
                             System.Text.Json.JsonElement tmp;
                             if (first.TryGetProperty("grade", out tmp) && tmp.ValueKind == System.Text.Json.JsonValueKind.String)
