@@ -182,6 +182,7 @@ namespace StyleWatcherWin
         private readonly PlotView _detailChannelDonut = new();
         private readonly PlotView _detailShopBar = new();
         private readonly PlotView _detailSkuHeat = new();
+        private readonly CheckBox _skuModeSales = new();
         private readonly CheckBox _skuModeInventory = new();
         private bool _skuShowInventory = false;
         private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer { Interval = 200 };
@@ -575,7 +576,7 @@ content.Controls.Add(_kpi, 0, 0);
             UiGrid.Optimize(_grid);
             _grid.Dock = DockStyle.Fill;
             _grid.ReadOnly = true;
-            _grid.AutoGenerateColumns = true; // 使用数据绑定自动生成列
+            _grid.AutoGenerateColumns = true;
             _grid.DataSource = _binding;
             panel.Controls.Add(_grid, 0, 2);
 
@@ -1670,7 +1671,7 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
             IReadOnlyList<InvRow> invRows = Array.Empty<InvRow>();
             if (_invPage != null)
             {
-                invRows = _invPage.AllRows;
+                invRows = _invPage!.AllRows;
             }
 
             ResultExporter.FillWorkbook(
