@@ -168,7 +168,7 @@ namespace StyleWatcherWin
         private readonly PlotView _plotWarehouse = new();
         private readonly PlotView _plotChannel = new();
 
-                // Status
+        // Status
         private readonly Label _status = new();
 
         // Detail
@@ -182,11 +182,10 @@ namespace StyleWatcherWin
         private readonly PlotView _detailChannelDonut = new();
         private readonly PlotView _detailShopBar = new();
         private readonly PlotView _detailSkuHeat = new();
-        private readonly CheckBox _skuModeSales = new();
         private readonly CheckBox _skuModeInventory = new();
+        private readonly CheckBox _skuModeSales = new();
         private bool _skuShowInventory = false;
-        private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer { Interval = 200 };
-
+        private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer() { Interval = 200 };
 
         // Inventory page
         private InventoryTabPage? _invPage;
@@ -195,6 +194,7 @@ namespace StyleWatcherWin
         private string _lastDisplayText = string.Empty;
         private List<Aggregations.SalesItem> _sales = new();
         private List<SaleRow> _gridMaster = new();
+        private readonly DetailFilter _detailFilter = new();
 
         // cached inventory totals from event
         private int _invAvailTotal = 0;
@@ -488,53 +488,22 @@ content.Controls.Add(_kpi, 0, 0);
 
         private void BuildTabs()
         {
-            // 概览
+                        // 概览
             BuildOverviewTab();
 
-            // 销售明细
-            BuildDetailTab();
+// 销售明细
+            var detail = new TabPage("销售明细") { BackColor = UI.Background };
+            var panel = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=3,ColumnCount=1,Padding=new Padding(12)};
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
 
-            // 库存页
-            _invPage = new InventoryTabPage(_cfg);
-            _invPage.SummaryUpdated += OnInventorySummary;
-            _tabs.TabPages.Add(_invPage);
-
-            // 唯品库存
-            BuildVipUI();
-        }
-
-        /// <summary>
-        /// 构建“销售明细”页：顶部搜索 + 汇总行 + 左侧明细表 + 右侧可视化仪表盘。
-        /// </summary>
-        private void BuildDetailTab()
-        {
-            var detail = new TabPage("销售明细")
-            {
-                BackColor = UI.Background
-            };
-
-            var panel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 3,
-                ColumnCount = 1,
-                Padding = new Padding(12)
-            };
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));   // 搜索框
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));   // 汇总行
-            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // 主区域：表格 + 仪表盘
-
-            // 顶部搜索框
             _boxSearch.Dock = DockStyle.Fill;
             _boxSearch.MinimumSize = new Size(0, 30);
             _boxSearch.Margin = new Padding(0, 4, 0, 4);
             _boxSearch.PlaceholderText = "搜索（日期/渠道/店铺/款式/尺码/颜色/数量）";
             UI.StyleInput(_boxSearch);
-            _boxSearch.TextChanged += (s, e) =>
-            {
-                _searchDebounce.Stop();
-                _searchDebounce.Start();
-            };
+            _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
             panel.Controls.Add(_boxSearch, 0, 0);
 
             // 汇总行：左侧过滤 Chip，中间渠道汇总，右侧 Top 店铺
@@ -570,49 +539,25 @@ content.Controls.Add(_kpi, 0, 0);
             summaryRow.Controls.Add(_filterChips, 0, 0);
             summaryRow.Controls.Add(_channelSummary, 1, 0);
             summaryRow.Controls.Add(_shopTop, 2, 0);
+
             panel.Controls.Add(summaryRow, 0, 1);
 
-            // 底部主区域：左侧销售明细表格，右侧仪表盘
-            var mainRow = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 1,
-                ColumnCount = 2,
-                Margin = new Padding(0, 4, 0, 0)
-            };
-            mainRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55)); // 左侧表格
-            mainRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45)); // 右侧可视化
-
-            // 销售明细表格（沿用原来的设置）
+            _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
+            _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.DisplayedCells;
+            _grid.AutoSizeRowsMode=DataGridViewAutoSizeRowsMode.DisplayedCells;
+            _grid.DataSource=_binding;
             UiGrid.Optimize(_grid);
-            _grid.Dock = DockStyle.Fill;
-            _grid.ReadOnly = true;
-            _grid.RowHeadersVisible = false;
-            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
-            _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCells;
-            _grid.AllowUserToAddRows = false;
-            _grid.AllowUserToDeleteRows = false;
-            _grid.DataSource = _binding;
-
-            mainRow.Controls.Add(_grid, 0, 0);
-
-            // 右侧仪表盘（趋势 / 渠道 / 店铺 / SKU 热力图）
-            var dashboard = BuildDetailDashboardLayout();
-            mainRow.Controls.Add(dashboard, 1, 0);
-
-            panel.Controls.Add(mainRow, 0, 2);
-
+            panel.Controls.Add(_grid,0,2);
             detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
 
-            // 搜索防抖：统一在这里挂事件
-            _searchDebounce.Interval = 200;
-            _searchDebounce.Tick += (s, e) =>
-            {
-                _searchDebounce.Stop();
-                ApplyFilter(_boxSearch.Text);
-            };
-        }
+            // 库存页
+            _invPage = new InventoryTabPage(_cfg);
+            _invPage.SummaryUpdated += OnInventorySummary;
+            _tabs.TabPages.Add(_invPage);
+        
+            BuildVipUI();
+}
 
         // 概览
         private void BuildOverviewTab()
@@ -1417,7 +1362,7 @@ private void RenderSkuHeatmap()
         {
             try
             {
-                var rows = _invPage!.AllRows;
+                var rows = _invPage.AllRows;
                 if (rows != null)
                 {
                     foreach (var r in rows)
@@ -1664,26 +1609,55 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
 
         private void ApplyFilter(string q)
         {
-            q = (q ?? string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(q))
+            _detailFilter.Text = (q ?? string.Empty).Trim();
+            ApplyDetailFilter();
+        }
+
+        /// <summary>
+        /// 根据当前 DetailFilter（渠道/店铺/颜色/尺码/搜索文本）刷新明细表。
+        /// 迭代1：仅启用文本搜索，结构维度预留给后续交互使用。
+        /// </summary>
+        private void ApplyDetailFilter()
+        {
+            var text = (_detailFilter.Text ?? string.Empty).Trim();
+
+            IEnumerable<SaleRow> rows = _gridMaster;
+
+            // 预留：后续按渠道/店铺/颜色/尺码过滤
+            if (!string.IsNullOrEmpty(_detailFilter.Channel))
             {
-                _binding.DataSource = new BindingList<SaleRow>(_gridMaster);
+                rows = rows.Where(r => r.渠道 == _detailFilter.Channel);
+            }
+            if (!string.IsNullOrEmpty(_detailFilter.Shop))
+            {
+                rows = rows.Where(r => r.店铺 == _detailFilter.Shop);
+            }
+            if (!string.IsNullOrEmpty(_detailFilter.Color))
+            {
+                rows = rows.Where(r => r.颜色 == _detailFilter.Color);
+            }
+            if (!string.IsNullOrEmpty(_detailFilter.Size))
+            {
+                rows = rows.Where(r => r.尺码 == _detailFilter.Size);
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                _binding.DataSource = new BindingList<SaleRow>(rows.ToList());
                 _grid.ClearSelection();
                 return;
             }
 
-            string ToText(SaleRow x)
-            {
-                return x?.SearchText ?? string.Empty;
-            }
+            string ToText(SaleRow x) => x?.SearchText ?? string.Empty;
 
             var filtered = UiSearch
-                .FilterAllTokens(_gridMaster, ToText, q)
+                .FilterAllTokens(rows, ToText, text)
                 .ToList();
 
             _binding.DataSource = new BindingList<SaleRow>(filtered);
             _grid.ClearSelection();
         }
+
 
 
         private void ExportExcel()
@@ -1701,7 +1675,7 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
             IReadOnlyList<InvRow> invRows = Array.Empty<InvRow>();
             if (_invPage != null)
             {
-                invRows = _invPage!.AllRows;
+                invRows = _invPage.AllRows;
             }
 
             ResultExporter.FillWorkbook(
@@ -1752,9 +1726,9 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                         {
                             var first = arr[0];
 
-                            string? grade = null;
-                            string? minp = null;
-                            string? brk = null;
+                            string grade = null;
+                            string minp = null;
+                            string brk = null;
 
                             System.Text.Json.JsonElement tmp;
                             if (first.TryGetProperty("grade", out tmp) && tmp.ValueKind == System.Text.Json.JsonValueKind.String)
@@ -2245,6 +2219,16 @@ private void ApplyVipFilter(string? keyword)
 
 
     // 行缓存：销售明细行 + 预计算的搜索文本，避免每次过滤时通过反射拼接字符串。
+        private sealed class DetailFilter
+        {
+            public string? Channel { get; set; }
+            public string? Shop { get; set; }
+            public string? Color { get; set; }
+            public string? Size { get; set; }
+            public string? Text { get; set; }
+        }
+
+
     private sealed class SaleRow
     {
         public string 日期   { get; set; } = string.Empty;
