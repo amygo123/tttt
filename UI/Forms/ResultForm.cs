@@ -1571,10 +1571,11 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
 
                 foreach (var c in channelAgg)
                 {
+                    var channel = c.Channel;
                     var lbl = new Label
                     {
                         AutoSize = true,
-                        Text = $"{c.Channel} {c.Qty}",
+                        Text = $"{channel} {c.Qty}",
                         Font = UI.Subtitle,
                         BackColor = UI.ChipBack,
                         ForeColor = UI.Text,
@@ -1584,7 +1585,19 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                     };
                     lbl.Click += (s, e) =>
                     {
-                        _boxSearch.Text = c.Channel;
+                        // 点击渠道 chip：切换 DetailFilter.Channel，并应用统一过滤逻辑。
+                        if (string.Equals(_detailFilter.Channel, channel, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _detailFilter.Channel = null;
+                        }
+                        else
+                        {
+                            _detailFilter.Channel = channel;
+                            // 切换渠道时，当前店铺过滤可能已经不适配，清掉，后续迭代可按需要保留。
+                            _detailFilter.Shop = null;
+                        }
+
+                        ApplyDetailFilter();
                     };
                     _channelSummary.Controls.Add(lbl);
                 }
