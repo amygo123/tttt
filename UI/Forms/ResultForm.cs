@@ -185,7 +185,7 @@ namespace StyleWatcherWin
         private readonly CheckBox _skuModeSales = new();
         private readonly CheckBox _skuModeInventory = new();
         private bool _skuShowInventory = false;
-        private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer { Interval = 200 };
+        private readonly System.Windows.Forms.Timer _searchDebounce = new System.Windows.Forms.Timer() { Interval = 200 };
 
 
         // Inventory page
@@ -488,53 +488,22 @@ content.Controls.Add(_kpi, 0, 0);
 
         private void BuildTabs()
         {
-            // 概览
+                        // 概览
             BuildOverviewTab();
 
-            // 销售明细
-            BuildDetailTab();
+// 销售明细
+            var detail = new TabPage("销售明细") { BackColor = UI.Background };
+            var panel = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=3,ColumnCount=1,Padding=new Padding(12)};
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
 
-            // 库存页
-            _invPage = new InventoryTabPage(_cfg);
-            _invPage.SummaryUpdated += OnInventorySummary;
-            _tabs.TabPages.Add(_invPage);
-
-            // 唯品库存
-            BuildVipUI();
-        }
-
-        /// <summary>
-        /// 构建“销售明细”页：顶部搜索，中部汇总 chips，底部明细表格。
-        /// </summary>
-        private void BuildDetailTab()
-        {
-            var detail = new TabPage("销售明细")
-            {
-                BackColor = UI.Background
-            };
-
-            var panel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 3,
-                ColumnCount = 1,
-                Padding = new Padding(12)
-            };
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));   // 搜索框
-            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));   // 汇总行
-            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // 明细表
-
-            // 搜索框
             _boxSearch.Dock = DockStyle.Fill;
             _boxSearch.MinimumSize = new Size(0, 30);
             _boxSearch.Margin = new Padding(0, 4, 0, 4);
             _boxSearch.PlaceholderText = "搜索（日期/渠道/店铺/款式/尺码/颜色/数量）";
             UI.StyleInput(_boxSearch);
-            _boxSearch.TextChanged += (s, e) =>
-            {
-                _searchDebounce.Stop();
-                _searchDebounce.Start();
-            };
+            _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
             panel.Controls.Add(_boxSearch, 0, 0);
 
             // 汇总行：左侧过滤 Chip，中间渠道汇总，右侧 Top 店铺
@@ -570,19 +539,25 @@ content.Controls.Add(_kpi, 0, 0);
             summaryRow.Controls.Add(_filterChips, 0, 0);
             summaryRow.Controls.Add(_channelSummary, 1, 0);
             summaryRow.Controls.Add(_shopTop, 2, 0);
+
             panel.Controls.Add(summaryRow, 0, 1);
 
-            // 明细表
+            _grid.Dock=DockStyle.Fill; _grid.ReadOnly=true; _grid.AllowUserToAddRows=false; _grid.AllowUserToDeleteRows=false;
+            _grid.RowHeadersVisible=false; _grid.AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.DisplayedCells;
+            _grid.AutoSizeRowsMode=DataGridViewAutoSizeRowsMode.DisplayedCells;
+            _grid.DataSource=_binding;
             UiGrid.Optimize(_grid);
-            _grid.Dock = DockStyle.Fill;
-            _grid.ReadOnly = true;
-            _grid.AutoGenerateColumns = true;
-            _grid.DataSource = _binding;
-            panel.Controls.Add(_grid, 0, 2);
-
+            panel.Controls.Add(_grid,0,2);
             detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
-        }
+
+            // 库存页
+            _invPage = new InventoryTabPage(_cfg);
+            _invPage.SummaryUpdated += OnInventorySummary;
+            _tabs.TabPages.Add(_invPage);
+        
+            BuildVipUI();
+}
 
         // 概览
         private void BuildOverviewTab()
