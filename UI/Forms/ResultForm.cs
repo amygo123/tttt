@@ -1209,7 +1209,7 @@ if (!string.IsNullOrWhiteSpace(styleName))
             .ToDictionary(g => g.Key, g => g.Sum(z => z.Qty));
 
         // 2) 如果有库存数据，则按颜色/尺码聚合库存 Available
-        var skuInventory = new Dictionary<(string Color, string Size), int>(StringComparer.OrdinalIgnoreCase);
+        var skuInventory = new Dictionary<(string Color, string Size), int>();
         if (_invPage != null)
         {
             try
@@ -1363,7 +1363,7 @@ if (!string.IsNullOrWhiteSpace(styleName))
             Position = AxisPosition.Right,
             Minimum = 0,
             Maximum = maxValue,
-            Palette = OxyPalettes.Blue(256)
+            Palette = OxyPalettes.Jet(256)
         };
         model.Axes.Add(colorAxis);
 
@@ -1608,9 +1608,9 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                         {
                             var first = arr[0];
 
-                            string grade = null;
-                            string minp = null;
-                            string brk = null;
+                            string? grade = null;
+                            string? minp = null;
+                            string? brk = null;
 
                             System.Text.Json.JsonElement tmp;
                             if (first.TryGetProperty("grade", out tmp) && tmp.ValueKind == System.Text.Json.JsonValueKind.String)
