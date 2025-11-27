@@ -168,10 +168,15 @@ namespace StyleWatcherWin
         private readonly PlotView _plotWarehouse = new();
         private readonly PlotView _plotChannel = new();
 
-                // Status
+        // Status
         private readonly Label _status = new();
 
-// Detail
+        // Detail dashboard plots
+        private readonly PlotView _detailTrend = new();
+        private readonly PlotView _detailChannelDonut = new();
+        private readonly PlotView _detailShopBar = new();
+
+        // Detail
         private readonly DataGridView _grid = new();
         private readonly BindingSource _binding = new();
         private readonly TextBox _boxSearch = new();
@@ -485,11 +490,18 @@ content.Controls.Add(_kpi, 0, 0);
 
 // 销售明细
             var detail = new TabPage("销售明细") { BackColor = UI.Background };
-            var panel = new TableLayoutPanel{Dock=DockStyle.Fill,RowCount=3,ColumnCount=1,Padding=new Padding(12)};
+            var panel = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 3,
+                ColumnCount = 1,
+                Padding = new Padding(12)
+            };
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            panel.RowStyles.Add(new RowStyle(SizeType.Percent,100));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
+            // 搜索框
             _boxSearch.Dock = DockStyle.Fill;
             _boxSearch.MinimumSize = new Size(0, 30);
             _boxSearch.Margin = new Padding(0, 4, 0, 4);
@@ -534,85 +546,91 @@ content.Controls.Add(_kpi, 0, 0);
 
             panel.Controls.Add(summaryRow, 0, 1);
 
+            // 销售明细网格（高度自适应、内部滚动条）
             _grid.Dock = DockStyle.Fill;
-_grid.ReadOnly = true;
-_grid.AllowUserToAddRows = false;
-_grid.AllowUserToDeleteRows = false;
-_grid.RowHeadersVisible = false;
-_grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
-_grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCells;
-_grid.DataSource = _binding;
-UiGrid.Optimize(_grid);
+            _grid.ReadOnly = true;
+            _grid.AllowUserToAddRows = false;
+            _grid.AllowUserToDeleteRows = false;
+            _grid.RowHeadersVisible = false;
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+            _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCells;
+            _grid.DataSource = _binding;
+            UiGrid.Optimize(_grid);
 
-// 左表右图：底部区域拆成两列，左侧为销售明细列表，右侧预留洞察面板
-var main = new TableLayoutPanel
-{
-    Dock = DockStyle.Fill,
-    RowCount = 1,
-    ColumnCount = 2,
-    Margin = new Padding(0)
-};
+            // 左表右图：底部区域拆成两列，左侧为销售明细列表，右侧洞察面板
+            var main = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 1,
+                ColumnCount = 2,
+                Margin = new Padding(0)
+            };
 
-// 销售明细列表宽度固定在窗体宽度的约 35%~40%，避免随着窗口放大无限拉伸
-var listWidth = Math.Max(640, (int)(ClientSize.Width * 0.38));
-main.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, listWidth));
-main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            // 左侧固定宽度：取窗体宽度的约 45%，并设置一个较大的下限，以避免频繁出现横向滚动条
+            var listWidth = Math.Max(720, (int)(ClientSize.Width * 0.45));
+            main.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, listWidth));
+            main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-// 左侧：销售明细表（高度由行撑满，内部滚动）
-var listPanel = new Panel
-{
-    Dock = DockStyle.Fill,
-    Margin = new Padding(0, 0, 8, 0)
-};
-listPanel.Controls.Add(_grid);
-main.Controls.Add(listPanel, 0, 0);
+            // 左侧：销售明细表（高度由行撑满，内部滚动）
+            var listPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 8, 0)
+            };
+            listPanel.Controls.Add(_grid);
+            main.Controls.Add(listPanel, 0, 0);
 
-// 右侧：洞察面板占位（Top / Middle / Bottom 三层）
-var dashboard = new TableLayoutPanel
-{
-    Dock = DockStyle.Fill,
-    RowCount = 3,
-    ColumnCount = 1,
-    Margin = new Padding(0),
-    BackColor = UI.Background
-};
-dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
-dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
-dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 40));
+            // 右侧：洞察面板（Top: 趋势；Middle: 归因；Bottom: SKU 热力图占位）
+            var dashboard = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 3,
+                ColumnCount = 1,
+                Margin = new Padding(0),
+                BackColor = UI.Background
+            };
+            dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
+            dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 30));
+            dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 40));
 
-dashboard.Controls.Add(new Label
-{
-    Text = "趋势层（待实现）",
-    Dock = DockStyle.Fill,
-    TextAlign = ContentAlignment.MiddleCenter,
-    Font = UI.Subtitle,
-    ForeColor = UI.MutedText
-}, 0, 0);
+            // Top - 趋势层
+            _detailTrend.Dock = DockStyle.Fill;
+            dashboard.Controls.Add(_detailTrend, 0, 0);
 
-dashboard.Controls.Add(new Label
-{
-    Text = "归因层（待实现）",
-    Dock = DockStyle.Fill,
-    TextAlign = ContentAlignment.MiddleCenter,
-    Font = UI.Subtitle,
-    ForeColor = UI.MutedText
-}, 0, 1);
+            // Middle - 归因层（左：渠道占比圆环；右：店铺 Top5 条形图）
+            var attributionRow = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 1,
+                ColumnCount = 2,
+                Margin = new Padding(0, 4, 0, 4)
+            };
+            attributionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            attributionRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
-dashboard.Controls.Add(new Label
-{
-    Text = "SKU 热力图（待实现）",
-    Dock = DockStyle.Fill,
-    TextAlign = ContentAlignment.MiddleCenter,
-    Font = UI.Subtitle,
-    ForeColor = UI.MutedText
-}, 0, 2);
+            _detailChannelDonut.Dock = DockStyle.Fill;
+            _detailShopBar.Dock = DockStyle.Fill;
 
-main.Controls.Add(dashboard, 1, 0);
+            attributionRow.Controls.Add(_detailChannelDonut, 0, 0);
+            attributionRow.Controls.Add(_detailShopBar, 1, 0);
 
-panel.Controls.Add(main, 0, 2);
-detail.Controls.Add(panel);
-_tabs.TabPages.Add(detail);
+            dashboard.Controls.Add(attributionRow, 0, 1);
 
+            // Bottom - 商品层：SKU 热力图占位（迭代 3 实现）
+            dashboard.Controls.Add(new Label
+            {
+                Text = "SKU 热力图（迭代 3 实现）",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = UI.Subtitle,
+                ForeColor = UI.MutedText
+            }, 0, 2);
+
+            main.Controls.Add(dashboard, 1, 0);
+
+            panel.Controls.Add(main, 0, 2);
+            detail.Controls.Add(panel);
+            _tabs.TabPages.Add(detail);
 // 库存页
             _invPage = new InventoryTabPage(_cfg);
             _invPage.SummaryUpdated += OnInventorySummary;
@@ -701,6 +719,7 @@ _tabs.TabPages.Add(detail);
                         if (_sales != null && _sales.Count > 0)
                         {
                             RenderCharts(_sales);
+                            RenderDetailDashboard(_sales);
                         }
                     }
                 };
@@ -856,6 +875,7 @@ _tabs.TabPages.Add(detail);
             SetMissingSizes(MissingSizes(_sales.Select(s=>s.Size), _invPage?.OfferedSizes() ?? System.Linq.Enumerable.Empty<string>(), _invPage?.CurrentZeroSizes() ?? System.Linq.Enumerable.Empty<string>()));
 
             RenderCharts(_sales);
+            RenderDetailDashboard(_sales);
             RenderSalesSummary(_sales);
 
             _binding.DataSource = new BindingList<SaleRow>(_gridMaster);
@@ -1219,6 +1239,144 @@ if (!string.IsNullOrWhiteSpace(styleName))
             {
                 _channelSummary.ResumeLayout();
                 _shopTop.ResumeLayout();
+            }
+        }
+
+        private void RenderDetailDashboard(List<Aggregations.SalesItem> sales)
+        {
+            try
+            {
+                if (sales == null || sales.Count == 0)
+                {
+                    _detailTrend.Model = null;
+                    _detailChannelDonut.Model = null;
+                    _detailShopBar.Model = null;
+                    return;
+                }
+
+                var cleaned = CleanSalesForVisuals(sales);
+
+                // 1) 趋势层：近 N 日销量趋势
+                var series = Aggregations.BuildDateSeries(cleaned, _trendWindow);
+                var trendModel = new PlotModel
+                {
+                    Title = $"近{_trendWindow}日销量趋势",
+                    PlotMargins = new OxyThickness(40, 8, 12, 32)
+                };
+                ApplyPlotTheme(trendModel);
+
+                var xAxis = new DateTimeAxis
+                {
+                    Position = AxisPosition.Bottom,
+                    StringFormat = "MM-dd",
+                    IntervalType = DateTimeIntervalType.Days,
+                    MinorIntervalType = DateTimeIntervalType.Days,
+                    MajorGridlineStyle = LineStyle.Solid,
+                    MinorGridlineStyle = LineStyle.None,
+                    IsZoomEnabled = false,
+                    IsPanEnabled = false
+                };
+
+                var yAxis = new LinearAxis
+                {
+                    Position = AxisPosition.Left,
+                    MinimumPadding = 0,
+                    AbsoluteMinimum = 0,
+                    MajorGridlineStyle = LineStyle.Solid,
+                    MinorGridlineStyle = LineStyle.None,
+                    IsZoomEnabled = false,
+                    IsPanEnabled = false
+                };
+
+                trendModel.Axes.Add(xAxis);
+                trendModel.Axes.Add(yAxis);
+
+                var line = new LineSeries
+                {
+                    Title = "销量",
+                    MarkerType = MarkerType.Circle,
+                    MarkerSize = 3,
+                    CanTrackerInterpolatePoints = false,
+                    TrackerFormatString = "日期: {2:yyyy-MM-dd}\n销量: {4:0}"
+                };
+
+                foreach (var (day, qty) in series)
+                {
+                    var x = DateTimeAxis.ToDouble(day);
+                    var y = qty;
+                    line.Points.Add(new DataPoint(x, y));
+
+                    var label = new TextAnnotation
+                    {
+                        Text = qty.ToString("0"),
+                        TextPosition = new DataPoint(x, y),
+                        TextVerticalAlignment = OxyPlot.VerticalAlignment.Bottom,
+                        TextHorizontalAlignment = OxyPlot.HorizontalAlignment.Center,
+                        Stroke = OxyColors.Transparent,
+                        FontSize = 9,
+                        TextColor = trendModel.TextColor
+                    };
+                    trendModel.Annotations.Add(label);
+                }
+
+                trendModel.Series.Clear();
+                trendModel.Series.Add(line);
+                _detailTrend.Model = trendModel;
+
+                // 为中间归因层准备近 7 日数据
+                var cutoff = DateTime.Today.AddDays(-6);
+                var recent = cleaned.Where(x => x.Date >= cutoff).ToList();
+                if (recent.Count == 0)
+                {
+                    _detailChannelDonut.Model = null;
+                    _detailShopBar.Model = null;
+                    return;
+                }
+
+                // 2) 渠道占比圆环图
+                var channelAgg = recent
+                    .GroupBy(x => string.IsNullOrWhiteSpace(x.Channel) ? "其他渠道" : x.Channel)
+                    .Select(g => new { Channel = g.Key, Qty = g.Sum(z => z.Qty) })
+                    .OrderByDescending(x => x.Qty)
+                    .ToList();
+
+                var channelModel = new PlotModel { Title = "近7日渠道占比" };
+                ApplyPlotTheme(channelModel);
+
+                var pie = new PieSeries
+                {
+                    InnerDiameter = 0.5,
+                    StrokeThickness = 0.25,
+                    StartAngle = 0,
+                    AngleSpan = 360,
+                    InsideLabelPosition = 0.75,
+                    FontSize = 10
+                };
+
+                foreach (var c in channelAgg)
+                {
+                    if (c.Qty <= 0) continue;
+                    pie.Slices.Add(new PieSlice(c.Channel, c.Qty));
+                }
+
+                channelModel.Series.Clear();
+                channelModel.Series.Add(pie);
+                _detailChannelDonut.Model = channelModel;
+
+                // 3) 店铺贡献 Top5 条形图
+                var shopAgg = recent
+                    .GroupBy(x => string.IsNullOrWhiteSpace(x.Shop) ? "未命名店铺" : x.Shop)
+                    .Select(g => new { Shop = g.Key, Qty = g.Sum(z => z.Qty) })
+                    .OrderByDescending(x => x.Qty)
+                    .Take(5)
+                    .ToList();
+
+                var shopData = shopAgg.Select(x => (Key: x.Shop, Qty: (double)x.Qty));
+                _detailShopBar.Model = UiCharts.BuildBarModel(shopData, "近7日店铺销量 Top5", topN: 5);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError(ex, "UI/Forms/ResultForm.DetailDashboard");
             }
         }
 
