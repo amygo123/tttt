@@ -1613,10 +1613,11 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                 int rank = 1;
                 foreach (var s in shopAgg)
                 {
+                    var shop = s.Shop;
                     var lbl = new Label
                     {
                         AutoSize = true,
-                        Text = $"{rank}. {s.Shop} {s.Qty}",
+                        Text = $"{rank}. {shop} {s.Qty}",
                         Font = UI.Subtitle,
                         BackColor = UI.ChipBack,
                         ForeColor = UI.Text,
@@ -1626,7 +1627,17 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                     };
                     lbl.Click += (sender, e) =>
                     {
-                        _boxSearch.Text = s.Shop;
+                        // 点击店铺 chip：切换 DetailFilter.Shop，并应用统一过滤逻辑。
+                        if (string.Equals(_detailFilter.Shop, shop, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _detailFilter.Shop = null;
+                        }
+                        else
+                        {
+                            _detailFilter.Shop = shop;
+                        }
+
+                        ApplyDetailFilter();
                     };
                     _shopTop.Controls.Add(lbl);
                     rank++;
