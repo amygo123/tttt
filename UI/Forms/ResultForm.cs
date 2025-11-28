@@ -195,11 +195,15 @@ namespace StyleWatcherWin
         private List<Aggregations.SalesItem> _sales = new();
         private List<SaleRow> _gridMaster = new();
         private readonly DetailFilter _detailFilter = new();
+        private List<string> _skuHeatSizes = new();
+        private List<string> _skuHeatColors = new();
+        private bool _skuHeatClickAttached = false;
 
         // cached inventory totals from event
         private int _invAvailTotal = 0;
         private int _invOnHandTotal = 0;
         private Dictionary<string,int> _invWarehouse = new Dictionary<string,int>();
+
 
         public ResultForm(AppConfig cfg)
         {
@@ -542,7 +546,16 @@ content.Controls.Add(_kpi, 0, 0);
 
             panel.Controls.Add(summaryRow, 0, 1);
 
-            // 明细区域：左侧表格 + 右侧仪表盘
+            var mainSplit = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                RowCount = 1,
+                ColumnCount = 2,
+            };
+            mainSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+            mainSplit.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+
+            // 左侧表格
             _grid.Dock = DockStyle.Fill;
             _grid.ReadOnly = true;
             _grid.AllowUserToAddRows = false;
@@ -552,21 +565,13 @@ content.Controls.Add(_kpi, 0, 0);
             _grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.DisplayedCells;
             _grid.DataSource = _binding;
             UiGrid.Optimize(_grid);
+            mainSplit.Controls.Add(_grid, 0, 0);
 
-            var detailRow = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                RowCount = 1,
-                ColumnCount = 2,
-                Margin = new Padding(0, 4, 0, 0)
-            };
-            detailRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-            detailRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+            // 右侧 Dashboard（趋势 + 渠道占比 + 店铺 Top5 + 热力图）
+            var dashboard = BuildDetailDashboardLayout();
+            mainSplit.Controls.Add(dashboard, 1, 0);
 
-            detailRow.Controls.Add(_grid, 0, 0);
-            detailRow.Controls.Add(BuildDetailDashboardLayout(), 1, 0);
-
-            panel.Controls.Add(detailRow, 0, 2);
+            panel.Controls.Add(mainSplit, 0, 2);
             detail.Controls.Add(panel);
             _tabs.TabPages.Add(detail);
 
@@ -1199,6 +1204,11 @@ private TableLayoutPanel BuildDetailDashboardLayout()
 
     skuPanel.Controls.Add(toolbar, 0, 0);
 
+    if (!_skuHeatClickAttached)
+    {
+        _detailSkuHeat.MouseDown += DetailSkuHeat_MouseDown;
+        _skuHeatClickAttached = true;
+    }
     _detailSkuHeat.Dock = DockStyle.Fill;
     skuPanel.Controls.Add(_detailSkuHeat, 0, 1);
 
@@ -1453,6 +1463,9 @@ private void RenderSkuHeatmap()
             _detailSkuHeat.Model = null;
             return;
         }
+        _skuHeatSizes = sizes;
+        _skuHeatColors = colors;
+
 
         int w = sizes.Count;
         int h = colors.Count;
@@ -1541,6 +1554,67 @@ private void RenderSkuHeatmap()
         _detailSkuHeat.Model = null;
     }
 }
+
+    private void DetailSkuHeat_MouseDown(object? sender, MouseEventArgs e)
+    {
+        try
+        {
+            if (_skuHeatSizes == null || _skuHeatSizes.Count == 0) return;
+            if (_skuHeatColors == null || _skuHeatColors.Count == 0) return;
+            if (sender is not PlotView pv) return;
+
+            var model = pv.Model;
+            if (model == null) return;
+
+            var heat = model.Series.OfType<HeatMapSeries>().FirstOrDefault();
+            if (heat == null) return;
+
+            var xAxis = model.Axes.OfType<CategoryAxis>()
+                .FirstOrDefault(a => a.Position == AxisPosition.Bottom);
+            var yAxis = model.Axes.OfType<CategoryAxis>()
+                .FirstOrDefault(a => a.Position == AxisPosition.Left);
+
+            if (xAxis == null || yAxis == null) return;
+
+            var sp = new ScreenPoint(e.X, e.Y);
+            var dp = heat.InverseTransform(sp, xAxis, yAxis);
+
+            int xi = (int)Math.Floor(dp.X);
+            int yi = (int)Math.Floor(dp.Y);
+
+            if (xi < 0 || yi < 0 ||
+                xi >= _skuHeatSizes.Count ||
+                yi >= _skuHeatColors.Count)
+            {
+                return;
+            }
+
+            var size = _skuHeatSizes[xi];
+            var color = _skuHeatColors[yi];
+
+            bool sameAsCurrent =
+                string.Equals(_detailFilter.Size, size, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(_detailFilter.Color, color, StringComparison.OrdinalIgnoreCase);
+
+            if (sameAsCurrent)
+            {
+                _detailFilter.Size = null;
+                _detailFilter.Color = null;
+            }
+            else
+            {
+                _detailFilter.Size = size;
+                _detailFilter.Color = color;
+            }
+
+            ApplyDetailFilter();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError(ex, "UI/Forms/ResultForm.DetailSkuHeat_MouseDown");
+        }
+    }
+
 private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
         {
             _channelSummary.SuspendLayout();
@@ -1593,7 +1667,7 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                         else
                         {
                             _detailFilter.Channel = channel;
-                            // 切换渠道时，当前店铺过滤可能已经不适配，清掉，后续迭代可按需要保留。
+                            // 切换渠道时，当前店铺过滤可能已经不适配，清掉。
                             _detailFilter.Shop = null;
                         }
 
@@ -1642,6 +1716,19 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                     _shopTop.Controls.Add(lbl);
                     rank++;
                 }
+                        BackColor = UI.ChipBack,
+                        ForeColor = UI.Text,
+                        Padding = new Padding(6, 2, 6, 2),
+                        Margin = new Padding(4, 2, 0, 2),
+                        Cursor = Cursors.Hand
+                    };
+                    lbl.Click += (sender, e) =>
+                    {
+                        _boxSearch.Text = s.Shop;
+                    };
+                    _shopTop.Controls.Add(lbl);
+                    rank++;
+                }
             }
             finally
             {
@@ -1658,7 +1745,6 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
 
         /// <summary>
         /// 根据当前 DetailFilter（渠道/店铺/颜色/尺码/搜索文本）刷新明细表。
-        /// 迭代1：仅启用文本搜索，结构维度预留给后续交互使用。
         /// </summary>
         private void ApplyDetailFilter()
         {
@@ -1666,7 +1752,6 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
 
             IEnumerable<SaleRow> rows = _gridMaster;
 
-            // 预留：后续按渠道/店铺/颜色/尺码过滤
             if (!string.IsNullOrEmpty(_detailFilter.Channel))
             {
                 rows = rows.Where(r => r.渠道 == _detailFilter.Channel);
@@ -2260,8 +2345,6 @@ private void ApplyVipFilter(string? keyword)
 }
 /* end: filter */
 
-
-    // 行缓存：销售明细行 + 预计算的搜索文本，避免每次过滤时通过反射拼接字符串。
         private sealed class DetailFilter
         {
             public string? Channel { get; set; }
@@ -2272,21 +2355,22 @@ private void ApplyVipFilter(string? keyword)
         }
 
 
-    private sealed class SaleRow
-    {
-        public string 日期   { get; set; } = string.Empty;
-        public string 渠道   { get; set; } = string.Empty;
-        public string 店铺   { get; set; } = string.Empty;
-        public string 款式   { get; set; } = string.Empty;
-        public string 颜色   { get; set; } = string.Empty;
-        public string 尺码   { get; set; } = string.Empty;
-        public int    数量   { get; set; }
+        // 行缓存：销售明细行 + 预计算的搜索文本，避免每次过滤时通过反射拼接字符串。
+        private sealed class SaleRow
+        {
+            public string 日期   { get; set; } = string.Empty;
+            public string 渠道   { get; set; } = string.Empty;
+            public string 店铺   { get; set; } = string.Empty;
+            public string 款式   { get; set; } = string.Empty;
+            public string 颜色   { get; set; } = string.Empty;
+            public string 尺码   { get; set; } = string.Empty;
+            public int    数量   { get; set; }
 
-        /// <summary>
-        /// 用于本地搜索的预计算字段，包含日期/渠道/店铺/款式/尺码/颜色/数量等信息。
-        /// </summary>
-        public string SearchText { get; set; } = string.Empty;
-    }
+            /// <summary>
+            /// 用于本地搜索的预计算字段，包含日期/渠道/店铺/款式/尺码/颜色/数量等信息。
+            /// </summary>
+            public string SearchText { get; set; } = string.Empty;
+        }
 
 // ===== 结束 =====
 // === VIP INTEGRATION END ===
