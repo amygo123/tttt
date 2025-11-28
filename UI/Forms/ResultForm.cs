@@ -1716,20 +1716,7 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                     _shopTop.Controls.Add(lbl);
                     rank++;
                 }
-                        BackColor = UI.ChipBack,
-                        ForeColor = UI.Text,
-                        Padding = new Padding(6, 2, 6, 2),
-                        Margin = new Padding(4, 2, 0, 2),
-                        Cursor = Cursors.Hand
-                    };
-                    lbl.Click += (sender, e) =>
-                    {
-                        _boxSearch.Text = s.Shop;
-                    };
-                    _shopTop.Controls.Add(lbl);
-                    rank++;
                 }
-            }
             finally
             {
                 _channelSummary.ResumeLayout();
