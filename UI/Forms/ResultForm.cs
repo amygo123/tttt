@@ -152,6 +152,8 @@ namespace StyleWatcherWin
         private readonly Panel _kpiDoc = new();
         private readonly Panel _kpiMissing = new();
         private readonly Panel _kpiGrade = new();
+        private readonly Panel _kpiReturn30 = new();
+        private readonly Panel _kpiReturnYear = new();
         private readonly Panel _kpiMinPrice = new();
         private readonly Panel _kpiBreakeven = new();
         private FlowLayoutPanel? _kpiMissingFlow;
@@ -243,6 +245,8 @@ _kpi.Controls.Add(MakeKpi(_kpiSales7, "近7日销量", "—"));
 _kpi.Controls.Add(MakeKpi(_kpiInv, "可用库存总量", "—"));
 _kpi.Controls.Add(MakeKpi(_kpiDoc, "库存天数", "—"));
 _kpi.Controls.Add(MakeKpi(_kpiGrade, "定级", "—"));
+_kpi.Controls.Add(MakeKpi(_kpiReturn30, "30日退货率", "—"));
+_kpi.Controls.Add(MakeKpi(_kpiReturnYear, "年度退货率", "—"));
 _kpi.Controls.Add(MakeKpi(_kpiMinPrice, "最低价", "—"));
 _kpi.Controls.Add(MakeKpi(_kpiBreakeven, "保本价", "—"));
 _kpi.Controls.Add(MakeKpiMissingChips(_kpiMissing, "缺货尺码"));
@@ -735,6 +739,8 @@ content.Controls.Add(_kpi, 0, 0);
     SetKpiValue(_kpiInv, "—");
     SetKpiValue(_kpiDoc, "—");
     SetKpiValue(_kpiGrade, "—");
+    SetKpiValue(_kpiReturn30, "—");
+    SetKpiValue(_kpiReturnYear, "—");
     SetKpiValue(_kpiMinPrice, "—");
     SetKpiValue(_kpiBreakeven, "—");
     SetMissingSizes(Array.Empty<string>());
@@ -841,6 +847,7 @@ if (!string.IsNullOrWhiteSpace(styleName))
             {
                 try { _ = _invPage?.LoadInventoryAsync(styleName); } catch {}
                 try { _ = LoadPriceAsync(styleName); } catch {}
+                try { _ = LoadReturnRateAsync(styleName); } catch {}
             }
             else
             {
@@ -848,6 +855,7 @@ if (!string.IsNullOrWhiteSpace(styleName))
                 // 将库存页和价格 KPI 一并重置为“无数据”状态，避免残留上一笔查询的结果。
                 try { _invPage?.ResetToEmpty(); } catch {}
                 try { _ = LoadPriceAsync(string.Empty); } catch {}
+                try { _ = LoadReturnRateAsync(string.Empty); } catch {}
 
                 // 同时给出明确提示，说明当前查询没有销售明细。
                 SetLoading("未解析到任何销售明细记录，库存与价格信息已清空。");
@@ -1842,6 +1850,75 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
 
         
     
+
+
+        private async System.Threading.Tasks.Task LoadReturnRateAsync(string styleName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(styleName))
+                {
+                    SetKpiValue(_kpiReturn30, "—");
+                    SetKpiValue(_kpiReturnYear, "—");
+                    return;
+                }
+
+                // 优先从配置读取退货率接口基础地址，如未设置则使用默认值
+                var baseUrl = _cfg?.inventory?.return_rate_url_base;
+                if (string.IsNullOrWhiteSpace(baseUrl))
+                {
+                    baseUrl = "http://192.168.40.97:8004/inventory?style_name=";
+                }
+
+                var url = baseUrl.Contains("style_name=")
+                    ? baseUrl + Uri.EscapeDataString(styleName)
+                    : baseUrl.TrimEnd('/') + "?style_name=" + Uri.EscapeDataString(styleName);
+
+                using (var http = new System.Net.Http.HttpClient())
+                {
+                    http.Timeout = System.TimeSpan.FromSeconds(5);
+                    var resp = await http.GetAsync(url);
+                    resp.EnsureSuccessStatusCode();
+                    var raw = await resp.Content.ReadAsStringAsync();
+
+                    // 兼容：JSON 数组字符串 或 纯文本行
+                    System.Collections.Generic.List<string>? lines = null;
+                    try { lines = System.Text.Json.JsonSerializer.Deserialize<System.Collections.Generic.List<string>>(raw); } catch { }
+                    if (lines == null)
+                    {
+                        lines = raw.Replace("\r\n", "\n").Split('\n').ToList();
+                    }
+
+                    double? rate30 = null;
+                    double? rateYear = null;
+
+                    foreach (var line in lines)
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        var seg = line.Replace('，', ',').Split(',');
+                        if (seg.Length < 3) continue;
+
+                        if (double.TryParse(seg[1].Trim(), out var r30))
+                            rate30 = r30;
+                        if (double.TryParse(seg[2].Trim(), out var rYear))
+                            rateYear = rYear;
+                        break; // 只取第一行
+                    }
+
+                    var text30 = rate30.HasValue ? (rate30.Value * 100).ToString("0.0") + "%" : "—";
+                    var textYear = rateYear.HasValue ? (rateYear.Value * 100).ToString("0.0") + "%" : "—";
+
+                    SetKpiValue(_kpiReturn30, text30);
+                    SetKpiValue(_kpiReturnYear, textYear);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
+                SetKpiValue(_kpiReturn30, "—");
+                SetKpiValue(_kpiReturnYear, "—");
+            }
+        }
 
         private async System.Threading.Tasks.Task LoadPriceAsync(string styleName)
         {

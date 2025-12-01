@@ -41,6 +41,9 @@ namespace StyleWatcherWin
             // 库存查询基础地址，按当前实现要求包含 style_name 参数
             public string url_base { get; set; } = "http://192.168.40.97:8000/inventory?style_name=";
 
+            // 退货率查询基础地址（可选），按当前实现要求包含 style_name 参数
+            public string return_rate_url_base { get; set; } = "http://192.168.40.97:8004/inventory?style_name=";
+
             // 款式信息 / 价格查询基础地址（可选）
             public string price_url_base { get; set; } = "";
         }
