@@ -175,8 +175,6 @@ namespace StyleWatcherWin
         private readonly DataGridView _grid = new();
         private readonly BindingSource _binding = new();
         private readonly TextBox _boxSearch = new();
-        private readonly FlowLayoutPanel _filterChips = new();
-        private readonly FlowLayoutPanel _channelSummary = new();
         private readonly FlowLayoutPanel _shopTop = new();
         private readonly PlotView _detailTrend = new();
         private readonly PlotView _detailChannelDonut = new();
@@ -510,23 +508,17 @@ content.Controls.Add(_kpi, 0, 0);
             _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
             panel.Controls.Add(_boxSearch, 0, 0);
 
-            // 汇总行：左侧过滤 Chip，中间渠道汇总，右侧 Top 店铺
+            // 汇总行：左侧渠道汇总，右侧 Top 店铺
             var summaryRow = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 3,
+                ColumnCount = 2,
                 RowCount = 1,
                 Margin = new Padding(0),
                 Padding = new Padding(0)
             };
-            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
-            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
-            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
-
-            _filterChips.Dock = DockStyle.Fill;
-            _filterChips.FlowDirection = FlowDirection.LeftToRight;
-            _filterChips.WrapContents = true;
-            _filterChips.Padding = new Padding(0, 0, 0, 4);
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            summaryRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
             _channelSummary.Dock = DockStyle.Fill;
             _channelSummary.FlowDirection = FlowDirection.LeftToRight;
@@ -540,12 +532,10 @@ content.Controls.Add(_kpi, 0, 0);
             _shopTop.Padding = new Padding(0, 0, 0, 4);
             _shopTop.AutoScroll = true;
 
-            summaryRow.Controls.Add(_filterChips, 0, 0);
-            summaryRow.Controls.Add(_channelSummary, 1, 0);
-            summaryRow.Controls.Add(_shopTop, 2, 0);
+            summaryRow.Controls.Add(_channelSummary, 0, 0);
+            summaryRow.Controls.Add(_shopTop, 1, 0);
 
             panel.Controls.Add(summaryRow, 0, 1);
-
             var mainSplit = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -1229,7 +1219,7 @@ private void RenderDetailDashboard()
             return;
         }
 
-        var cleaned = CleanSalesForVisuals(_sales);
+        var cleaned = CleanSalesForVisuals(FilterSalesForDetail(_sales));
 
         // 1) 趋势层：近 N 日销量趋势
         var series = Aggregations.BuildDateSeries(cleaned, _trendWindow);
@@ -1577,12 +1567,10 @@ private void RenderSkuHeatmap()
             if (xAxis == null || yAxis == null) return;
 
             var sp = new ScreenPoint(e.X, e.Y);
-            var xValue = xAxis.InverseTransform(sp.X);
-            var yValue = yAxis.InverseTransform(sp.Y);
+            var dp = heat.InverseTransform(sp, xAxis, yAxis);
 
-            int xi = (int)Math.Floor(xValue);
-            int yi = (int)Math.Floor(yValue);
-
+            int xi = (int)Math.Floor(dp.X);
+            int yi = (int)Math.Floor(dp.Y);
 
             if (xi < 0 || yi < 0 ||
                 xi >= _skuHeatSizes.Count ||
@@ -1774,6 +1762,39 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
             _binding.DataSource = new BindingList<SaleRow>(filtered);
             _grid.ClearSelection();
         }
+        /// <summary>
+        /// 将 _sales 按当前 DetailFilter 过滤，用于右侧 dashboard（趋势 / 渠道 / 店铺）。
+        /// 不参与文本搜索，只按渠道 / 店铺 / 颜色 / 尺码过滤。
+        /// </summary>
+        private IEnumerable<Aggregations.SalesItem> FilterSalesForDetail(IEnumerable<Aggregations.SalesItem> source)
+        {
+            if (source == null)
+            {
+                return Enumerable.Empty<Aggregations.SalesItem>();
+            }
+
+            var query = source;
+
+            if (!string.IsNullOrEmpty(_detailFilter.Channel))
+            {
+                query = query.Where(x => string.Equals(x.Channel, _detailFilter.Channel, StringComparison.OrdinalIgnoreCase));
+            }
+            if (!string.IsNullOrEmpty(_detailFilter.Shop))
+            {
+                query = query.Where(x => string.Equals(x.Shop, _detailFilter.Shop, StringComparison.OrdinalIgnoreCase));
+            }
+            if (!string.IsNullOrEmpty(_detailFilter.Color))
+            {
+                query = query.Where(x => string.Equals(x.Color, _detailFilter.Color, StringComparison.OrdinalIgnoreCase));
+            }
+            if (!string.IsNullOrEmpty(_detailFilter.Size))
+            {
+                query = query.Where(x => string.Equals(x.Size, _detailFilter.Size, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return query;
+        }
+
 
 
 
@@ -1843,9 +1864,9 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                         {
                             var first = arr[0];
 
-                            string? grade = null;
-                            string? minp = null;
-                            string? brk = null;
+                            string grade = null;
+                            string minp = null;
+                            string brk = null;
 
                             System.Text.Json.JsonElement tmp;
                             if (first.TryGetProperty("grade", out tmp) && tmp.ValueKind == System.Text.Json.JsonValueKind.String)

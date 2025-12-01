@@ -172,7 +172,7 @@ namespace StyleWatcherWin
                     }
                 }
 
-                return raw ?? string.Empty;
+                return raw;
             }
             catch (Exception ex)
             {
