@@ -175,6 +175,7 @@ namespace StyleWatcherWin
         private readonly DataGridView _grid = new();
         private readonly BindingSource _binding = new();
         private readonly TextBox _boxSearch = new();
+        private readonly FlowLayoutPanel _channelSummary = new();
         private readonly FlowLayoutPanel _shopTop = new();
         private readonly PlotView _detailTrend = new();
         private readonly PlotView _detailChannelDonut = new();
@@ -508,6 +509,7 @@ content.Controls.Add(_kpi, 0, 0);
             _boxSearch.TextChanged += (s, e) => { _searchDebounce.Stop(); _searchDebounce.Start(); };
             panel.Controls.Add(_boxSearch, 0, 0);
 
+            // 汇总行：左侧过滤 Chip，中间渠道汇总，右侧 Top 店铺
             // 汇总行：左侧渠道汇总，右侧 Top 店铺
             var summaryRow = new TableLayoutPanel
             {
@@ -536,6 +538,7 @@ content.Controls.Add(_kpi, 0, 0);
             summaryRow.Controls.Add(_shopTop, 1, 0);
 
             panel.Controls.Add(summaryRow, 0, 1);
+
             var mainSplit = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -1567,10 +1570,12 @@ private void RenderSkuHeatmap()
             if (xAxis == null || yAxis == null) return;
 
             var sp = new ScreenPoint(e.X, e.Y);
-            var dp = heat.InverseTransform(sp, xAxis, yAxis);
+            var xValue = xAxis.InverseTransform(sp.X);
+            var yValue = yAxis.InverseTransform(sp.Y);
 
-            int xi = (int)Math.Floor(dp.X);
-            int yi = (int)Math.Floor(dp.Y);
+            int xi = (int)Math.Floor(xValue);
+            int yi = (int)Math.Floor(yValue);
+
 
             if (xi < 0 || yi < 0 ||
                 xi >= _skuHeatSizes.Count ||
@@ -1762,6 +1767,7 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
             _binding.DataSource = new BindingList<SaleRow>(filtered);
             _grid.ClearSelection();
         }
+
         /// <summary>
         /// 将 _sales 按当前 DetailFilter 过滤，用于右侧 dashboard（趋势 / 渠道 / 店铺）。
         /// 不参与文本搜索，只按渠道 / 店铺 / 颜色 / 尺码过滤。
@@ -1864,9 +1870,9 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                         {
                             var first = arr[0];
 
-                            string grade = null;
-                            string minp = null;
-                            string brk = null;
+                            string? grade = null;
+                            string? minp = null;
+                            string? brk = null;
 
                             System.Text.Json.JsonElement tmp;
                             if (first.TryGetProperty("grade", out tmp) && tmp.ValueKind == System.Text.Json.JsonValueKind.String)
