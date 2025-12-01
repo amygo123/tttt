@@ -1577,10 +1577,12 @@ private void RenderSkuHeatmap()
             if (xAxis == null || yAxis == null) return;
 
             var sp = new ScreenPoint(e.X, e.Y);
-            var dp = heat.InverseTransform(sp, xAxis, yAxis);
+            var xValue = xAxis.InverseTransform(sp.X);
+            var yValue = yAxis.InverseTransform(sp.Y);
 
-            int xi = (int)Math.Floor(dp.X);
-            int yi = (int)Math.Floor(dp.Y);
+            int xi = (int)Math.Floor(xValue);
+            int yi = (int)Math.Floor(yValue);
+
 
             if (xi < 0 || yi < 0 ||
                 xi >= _skuHeatSizes.Count ||
@@ -1841,9 +1843,9 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                         {
                             var first = arr[0];
 
-                            string grade = null;
-                            string minp = null;
-                            string brk = null;
+                            string? grade = null;
+                            string? minp = null;
+                            string? brk = null;
 
                             System.Text.Json.JsonElement tmp;
                             if (first.TryGetProperty("grade", out tmp) && tmp.ValueKind == System.Text.Json.JsonValueKind.String)
