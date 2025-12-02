@@ -110,8 +110,6 @@ namespace StyleWatcherWin
         readonly IStyleAnalysisService _analysisService;
 
 
-
-
         // Single window & throttling
 
         ResultForm? _window;
@@ -290,7 +288,8 @@ namespace StyleWatcherWin
 
             {
 
-                _window = new ResultForm(_cfg, _analysisService);
+                _window = new ResultForm(_cfg);
+                _window.SetAnalysisService(_analysisService);
 
                 _window.FormClosing += (s, e) =>
 

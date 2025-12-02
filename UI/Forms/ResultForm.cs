@@ -139,7 +139,8 @@ namespace StyleWatcherWin
         private readonly System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string> _warehouseSliceMap = new System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string>();
 
         private readonly AppConfig _cfg;
-        private readonly IStyleAnalysisService _analysisService;
+
+        private IStyleAnalysisService? _analysisService;
         private System.Threading.CancellationTokenSource? _analysisCts;
 
         // Header
@@ -208,10 +209,18 @@ namespace StyleWatcherWin
         private Dictionary<string,int> _invWarehouse = new Dictionary<string,int>();
 
 
-        public ResultForm(AppConfig cfg, IStyleAnalysisService analysisService)
+        /// <summary>
+        /// 供外部（TrayApp）注入统一的分析服务，用于复用接口调用与文本清洗逻辑。
+        /// 非必需；未设置时退回到旧的本地调用方式。
+        /// </summary>
+        public void SetAnalysisService(IStyleAnalysisService service)
+        {
+            _analysisService = service ?? throw new ArgumentNullException(nameof(service));
+        }
+
+        public ResultForm(AppConfig cfg)
         {
             _cfg = cfg;
-            _analysisService = analysisService ?? throw new ArgumentNullException(nameof(analysisService));
             _vipHttp.Timeout = TimeSpan.FromSeconds(Math.Max(1, _cfg.timeout_seconds));
 
             Text = "StyleWatcher";
@@ -300,18 +309,45 @@ content.Controls.Add(_kpi, 0, 0);
 
                     SetLoading("查询中...");
 
-                    _analysisCts?.Cancel();
-                    _analysisCts = new System.Threading.CancellationTokenSource();
-                    var token = _analysisCts.Token;
-
                     string result;
-                    try
+
+                    if (_analysisService != null)
                     {
-                        result = await _analysisService.GetParsedTextAsync(txt, token);
+                        _analysisCts?.Cancel();
+                        _analysisCts = new System.Threading.CancellationTokenSource();
+                        var token = _analysisCts.Token;
+
+                        try
+                        {
+                            result = await _analysisService.GetParsedTextAsync(txt, token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            return;
+                        }
                     }
-                    catch (OperationCanceledException)
+                    else
                     {
-                        return;
+                        string raw = await ApiHelper.QueryAsync(_cfg, txt);
+
+                        if (raw != null && raw.StartsWith("请求失败：", StringComparison.Ordinal))
+                        {
+                            SetLoading(raw);
+                            return;
+                        }
+
+                        if (string.IsNullOrWhiteSpace(raw))
+                        {
+                            SetLoading("接口未返回任何内容");
+                            return;
+                        }
+
+                        result = Formatter.Prettify(raw);
+                        if (string.IsNullOrWhiteSpace(result))
+                        {
+                            SetLoading("未解析到任何结果");
+                            return;
+                        }
                     }
 
                     await ApplyRawTextAsync(txt, result);
