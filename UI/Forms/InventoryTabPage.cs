@@ -28,6 +28,7 @@ namespace StyleWatcherWin
         private static readonly HttpClient _http = new();
 
         private readonly AppConfig _cfg;
+        private IInventoryService? _inventoryService;
         private InvSnapshot _all = new();
         private string _styleName = "";
 
@@ -76,6 +77,12 @@ namespace StyleWatcherWin
             _subTabs.Appearance = TabAppearance.Normal;
             _subTabs.Padding = new System.Drawing.Point(12, 4);
         }
+
+        public void SetInventoryService(IInventoryService service)
+        {
+            _inventoryService = service ?? throw new ArgumentNullException(nameof(service));
+        }
+
 
         
         private Control BuildTopTools()
@@ -171,7 +178,17 @@ namespace StyleWatcherWin
         {
             _activeCell = null; // 清筛选
 
-            _all = await FetchInventoryAsync(styleName);
+            InvSnapshot snap;
+            if (_inventoryService != null)
+            {
+                snap = await _inventoryService.GetSnapshotAsync(styleName);
+            }
+            else
+            {
+                snap = await FetchInventoryAsync(styleName);
+            }
+
+            _all = snap;
             RenderAll(_all);
 
             if (_all.Rows.Count == 0)

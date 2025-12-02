@@ -142,6 +142,7 @@ namespace StyleWatcherWin
 
         private IStyleAnalysisService? _analysisService;
         private System.Threading.CancellationTokenSource? _analysisCts;
+        private readonly IInventoryService _inventoryService;
 
         // Header
         private readonly TextBox _input = new();
@@ -221,6 +222,7 @@ namespace StyleWatcherWin
         public ResultForm(AppConfig cfg)
         {
             _cfg = cfg;
+            _inventoryService = new InventoryService(_cfg);
             _vipHttp.Timeout = TimeSpan.FromSeconds(Math.Max(1, _cfg.timeout_seconds));
 
             Text = "StyleWatcher";
@@ -607,6 +609,7 @@ content.Controls.Add(_kpi, 0, 0);
 
             // 库存页
             _invPage = new InventoryTabPage(_cfg);
+            _invPage.SetInventoryService(_inventoryService);
             _invPage.SummaryUpdated += OnInventorySummary;
             _tabs.TabPages.Add(_invPage);
         
