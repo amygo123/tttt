@@ -143,7 +143,6 @@ namespace StyleWatcherWin
             return grid;
         }
 
-        #region 对外入口（兼容旧方法名）
         public async Task LoadAsync(string styleName)
         {
             _styleName = styleName ?? "";
@@ -168,7 +167,6 @@ namespace StyleWatcherWin
             _lblOnHand.Text = "现有合计：0（未获取到库存数据）";
         }
 
-        #endregion
 
 
 private async Task ReloadAsync(string styleName)
