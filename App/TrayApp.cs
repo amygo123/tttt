@@ -290,7 +290,7 @@ namespace StyleWatcherWin
 
             {
 
-                _window = new ResultForm(_cfg);
+                _window = new ResultForm(_cfg, _analysisService);
 
                 _window.FormClosing += (s, e) =>
 

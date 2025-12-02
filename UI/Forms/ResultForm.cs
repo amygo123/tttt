@@ -142,7 +142,6 @@ namespace StyleWatcherWin
         private readonly IStyleAnalysisService _analysisService;
         private System.Threading.CancellationTokenSource? _analysisCts;
 
-
         // Header
         private readonly TextBox _input = new();
         private readonly Button _btnQuery = new();
