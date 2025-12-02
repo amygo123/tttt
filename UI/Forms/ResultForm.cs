@@ -199,6 +199,8 @@ namespace StyleWatcherWin
         private List<string> _skuHeatSizes = new();
         private List<string> _skuHeatColors = new();
         private bool _skuHeatClickAttached = false;
+        private bool _detailChannelClickAttached = false;
+        private bool _detailShopClickAttached = false;
 
         // cached inventory totals from event
         private int _invAvailTotal = 0;
@@ -1135,6 +1137,19 @@ private TableLayoutPanel BuildDetailDashboardLayout()
 
     _detailChannelDonut.Dock = DockStyle.Fill;
     _detailShopBar.Dock = DockStyle.Fill;
+
+    if (!_detailChannelClickAttached)
+    {
+        _detailChannelDonut.MouseDown += DetailChannelDonut_MouseDown;
+        _detailChannelClickAttached = true;
+    }
+
+    if (!_detailShopClickAttached)
+    {
+        _detailShopBar.MouseDown += DetailShopBar_MouseDown;
+        _detailShopClickAttached = true;
+    }
+
     attributionRow.Controls.Add(_detailChannelDonut, 0, 0);
     attributionRow.Controls.Add(_detailShopBar, 1, 0);
     dashboard.Controls.Add(attributionRow, 0, 1);
@@ -1618,6 +1633,84 @@ private void RenderSkuHeatmap()
         }
     }
 
+
+    private void DetailChannelDonut_MouseDown(object? sender, MouseEventArgs e)
+    {
+        try
+        {
+            if (sender is not OxyPlot.WindowsForms.PlotView pv) return;
+            var model = pv.Model;
+            if (model == null) return;
+
+            var pie = model.Series.OfType<OxyPlot.Series.PieSeries>().FirstOrDefault();
+            if (pie == null) return;
+
+            var sp = new OxyPlot.ScreenPoint(e.X, e.Y);
+            var hit = pie.GetNearestPoint(sp, false);
+            if (hit == null || hit.Item == null) return;
+
+            if (hit.Item is OxyPlot.Series.PieSlice slice)
+            {
+                var channel = slice.Label;
+                if (string.IsNullOrWhiteSpace(channel)) return;
+
+                if (string.Equals(_detailFilter.Channel, channel, StringComparison.OrdinalIgnoreCase))
+                {
+                    _detailFilter.Channel = null;
+                }
+                else
+                {
+                    _detailFilter.Channel = channel;
+                    // 切换渠道时，当前店铺过滤可能已经不适配，清掉。
+                    _detailFilter.Shop = null;
+                }
+
+                ApplyDetailFilter();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError(ex, "UI/Forms/ResultForm.DetailChannelDonut_MouseDown");
+        }
+    }
+
+    private void DetailShopBar_MouseDown(object? sender, MouseEventArgs e)
+    {
+        try
+        {
+            if (sender is not OxyPlot.WindowsForms.PlotView pv) return;
+            var model = pv.Model;
+            if (model == null) return;
+
+            var catAxis = model.Axes.OfType<OxyPlot.Axes.CategoryAxis>()
+                .FirstOrDefault(a => a.Position == OxyPlot.Axes.AxisPosition.Left);
+            if (catAxis == null || catAxis.Labels == null || catAxis.Labels.Count == 0) return;
+
+            var sp = new OxyPlot.ScreenPoint(e.X, e.Y);
+            var value = catAxis.InverseTransform(sp.Y);
+            int index = (int)Math.Floor(value);
+            if (index < 0 || index >= catAxis.Labels.Count) return;
+
+            var shop = catAxis.Labels[index];
+            if (string.IsNullOrWhiteSpace(shop)) return;
+
+            if (string.Equals(_detailFilter.Shop, shop, StringComparison.OrdinalIgnoreCase))
+            {
+                _detailFilter.Shop = null;
+            }
+            else
+            {
+                _detailFilter.Shop = shop;
+            }
+
+            ApplyDetailFilter();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogError(ex, "UI/Forms/ResultForm.DetailShopBar_MouseDown");
+        }
+    }
+
 private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
         {
             _channelSummary.SuspendLayout();
@@ -1851,7 +1944,7 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
         
     
 
-
+        
         private async System.Threading.Tasks.Task LoadReturnRateAsync(string styleName)
         {
             try
@@ -1902,6 +1995,7 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                             rate30 = r30;
                         if (double.TryParse(seg[2].Trim(), out var rYear))
                             rateYear = rYear;
+
                         break; // 只取第一行
                     }
 
@@ -1914,13 +2008,13 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
             }
             catch (Exception ex)
             {
-                AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
+                AppLogger.LogError(ex, "UI/Forms/ResultForm.LoadReturnRateAsync");
                 SetKpiValue(_kpiReturn30, "—");
                 SetKpiValue(_kpiReturnYear, "—");
             }
         }
 
-        private async System.Threading.Tasks.Task LoadPriceAsync(string styleName)
+private async System.Threading.Tasks.Task LoadPriceAsync(string styleName)
         {
             try
             {
