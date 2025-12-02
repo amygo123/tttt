@@ -280,36 +280,31 @@ namespace StyleWatcherWin
 
 
 
-
-void EnsureWindow()
-
-{
-
-    if (_window == null || _window.IsDisposed)
-
-    {
-
-        _window = new ResultForm(_cfg);
-
-        _window.FormClosing += (s, e) =>
+        void EnsureWindow()
 
         {
 
-            if (!_allowCloseAll)
+            if (_window == null || _window.IsDisposed)
 
             {
 
-                e.Cancel = true;
+                _window = new ResultForm(_cfg);
 
-                _window?.Hide();
+                _window.FormClosing += (s, e) =>
 
-            }
+                {
 
-        };
+                    if (!_allowCloseAll)
 
-    }
+                    {
 
-}
+                        e.Cancel = true;
+
+                        _window?.Hide();
+
+                    }
+
+                };
 
             }
 
@@ -536,7 +531,7 @@ void EnsureWindow()
 
                 var w = _window;
 
-                if (w != null) w.SetLoading(ex.Message);
+                if (w != null) w.SetLoading($"错误：{ex.Message}");
 
             }
 
