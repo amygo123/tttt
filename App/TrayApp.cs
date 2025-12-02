@@ -107,6 +107,8 @@ namespace StyleWatcherWin
         readonly ContextMenuStrip _menu = new ContextMenuStrip();
 
         readonly AppConfig _cfg;
+        readonly IStyleAnalysisService _analysisService;
+
 
 
 
@@ -137,6 +139,8 @@ namespace StyleWatcherWin
             _cfg = AppConfig.Load();
 
             if (_cfg == null) _cfg = new AppConfig();
+
+            _analysisService = new StyleAnalysisService(_cfg);
 
             ShowInTaskbar = false;
 
@@ -513,47 +517,7 @@ namespace StyleWatcherWin
 
                 w.SetLoading("查询中...");
 
-                // 统一走 ApiHelper
-
-                string raw = await ApiHelper.QueryAsync(_cfg, txt);
-
-                if (raw != null && raw.StartsWith("请求失败：", StringComparison.Ordinal))
-
-                {
-
-                    w.SetLoading(raw);
-
-                    return;
-
-                }
-
-
-
-                if (string.IsNullOrWhiteSpace(raw))
-
-                {
-
-                    w.SetLoading("接口未返回任何内容");
-
-                    return;
-
-                }
-
-
-
-                string result = Formatter.Prettify(raw);
-
-                if (string.IsNullOrWhiteSpace(result))
-
-                {
-
-                    w.SetLoading("未解析到任何结果");
-
-                    return;
-
-                }
-
-
+                string result = await _analysisService.GetParsedTextAsync(txt);
 
                 await w.ApplyRawTextAsync(txt, result);
 
@@ -569,7 +533,7 @@ namespace StyleWatcherWin
 
                 var w = _window;
 
-                if (w != null) w.SetLoading($"错误：{ex.Message}");
+                if (w != null) w.SetLoading(ex.Message);
 
             }
 

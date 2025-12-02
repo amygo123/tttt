@@ -139,6 +139,9 @@ namespace StyleWatcherWin
         private readonly System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string> _warehouseSliceMap = new System.Collections.Generic.Dictionary<OxyPlot.Series.PieSlice, string>();
 
         private readonly AppConfig _cfg;
+        private readonly IStyleAnalysisService _analysisService;
+        private System.Threading.CancellationTokenSource? _analysisCts;
+
 
         // Header
         private readonly TextBox _input = new();
@@ -206,9 +209,10 @@ namespace StyleWatcherWin
         private Dictionary<string,int> _invWarehouse = new Dictionary<string,int>();
 
 
-        public ResultForm(AppConfig cfg)
+        public ResultForm(AppConfig cfg, IStyleAnalysisService analysisService)
         {
             _cfg = cfg;
+            _analysisService = analysisService ?? throw new ArgumentNullException(nameof(analysisService));
             _vipHttp.Timeout = TimeSpan.FromSeconds(Math.Max(1, _cfg.timeout_seconds));
 
             Text = "StyleWatcher";
@@ -296,24 +300,18 @@ content.Controls.Add(_kpi, 0, 0);
                     }
 
                     SetLoading("查询中...");
-                    string raw = await ApiHelper.QueryAsync(_cfg, txt);
 
-                    if (raw != null && raw.StartsWith("请求失败：", StringComparison.Ordinal))
+                    _analysisCts?.Cancel();
+                    _analysisCts = new System.Threading.CancellationTokenSource();
+                    var token = _analysisCts.Token;
+
+                    string result;
+                    try
                     {
-                        SetLoading(raw);
-                        return;
+                        result = await _analysisService.GetParsedTextAsync(txt, token);
                     }
-
-                    if (string.IsNullOrWhiteSpace(raw))
+                    catch (OperationCanceledException)
                     {
-                        SetLoading("接口未返回任何内容");
-                        return;
-                    }
-
-                    string result = Formatter.Prettify(raw);
-                    if (string.IsNullOrWhiteSpace(result))
-                    {
-                        SetLoading("未解析到任何结果");
                         return;
                     }
 
@@ -322,7 +320,7 @@ content.Controls.Add(_kpi, 0, 0);
                 catch (Exception ex)
                 {
                     AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
-                    SetLoading($"错误：{ex.Message}");
+                    SetLoading(ex.Message);
                 }
                 finally
                 {
