@@ -199,7 +199,6 @@ private async Task ReloadAsync(string styleName)
             BindGrid(_grid, snap.Rows);
         }
 
-        #endregion
 
         #region 绘图与缩放（柱状图降序 + 默认 Top10）
         private void RenderBarsByColor(InvSnapshot snap, PlotView pv, string title)
