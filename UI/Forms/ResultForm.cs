@@ -140,7 +140,7 @@ namespace StyleWatcherWin
 
         private readonly AppConfig _cfg;
 
-        private IStyleAnalysisService? _analysisService;
+        private readonly IStyleAnalysisService _analysisService;
         private System.Threading.CancellationTokenSource? _analysisCts;
         private readonly IInventoryService _inventoryService;
 
@@ -222,6 +222,7 @@ namespace StyleWatcherWin
         public ResultForm(AppConfig cfg)
         {
             _cfg = cfg;
+            _analysisService = new StyleAnalysisService(_cfg);
             _inventoryService = new InventoryService(_cfg);
             _vipHttp.Timeout = TimeSpan.FromSeconds(Math.Max(1, _cfg.timeout_seconds));
 
@@ -297,73 +298,47 @@ content.Controls.Add(_kpi, 0, 0);
 
             _btnQuery.Text = "重新查询";
             UI.StylePrimary(_btnQuery);
-            _btnQuery.Click += async (s, e) =>
-            {
-                _btnQuery.Enabled = false;
-                try
-                {
-                    var txt = _input.Text ?? string.Empty;
-                    if (string.IsNullOrWhiteSpace(txt))
-                    {
-                        SetLoading("请输入要查询的内容");
-                        return;
-                    }
 
-                    SetLoading("查询中...");
+_btnQuery.Click += async (s, e) =>
+{
+    _btnQuery.Enabled = false;
+    try
+    {
+        var txt = _input.Text ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(txt))
+        {
+            SetLoading("请输入要查询的内容");
+            return;
+        }
 
-                    string result;
+        SetLoading("查询中...");
 
-                    if (_analysisService != null)
-                    {
-                        _analysisCts?.Cancel();
-                        _analysisCts = new System.Threading.CancellationTokenSource();
-                        var token = _analysisCts.Token;
+        _analysisCts?.Cancel();
+        _analysisCts = new System.Threading.CancellationTokenSource();
+        var token = _analysisCts.Token;
 
-                        try
-                        {
-                            result = await _analysisService.GetParsedTextAsync(txt, token);
-                        }
-                        catch (OperationCanceledException)
-                        {
-                            return;
-                        }
-                    }
-                    else
-                    {
-                        string raw = await ApiHelper.QueryAsync(_cfg, txt);
+        string result;
+        try
+        {
+            result = await _analysisService.GetParsedTextAsync(txt, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
 
-                        if (raw != null && raw.StartsWith("请求失败：", StringComparison.Ordinal))
-                        {
-                            SetLoading(raw);
-                            return;
-                        }
-
-                        if (string.IsNullOrWhiteSpace(raw))
-                        {
-                            SetLoading("接口未返回任何内容");
-                            return;
-                        }
-
-                        result = Formatter.Prettify(raw);
-                        if (string.IsNullOrWhiteSpace(result))
-                        {
-                            SetLoading("未解析到任何结果");
-                            return;
-                        }
-                    }
-
-                    await ApplyRawTextAsync(txt, result);
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
-                    SetLoading(ex.Message);
-                }
-                finally
-                {
-                    _btnQuery.Enabled = true;
-                }
-            };
+        await ApplyRawTextAsync(txt, result);
+    }
+    catch (Exception ex)
+    {
+        AppLogger.LogError(ex, "UI/Forms/ResultForm.cs");
+        SetLoading(ex.Message);
+    }
+    finally
+    {
+        _btnQuery.Enabled = true;
+    }
+};
 
             _btnExport.Text = "导出Excel";
             UI.StyleSecondary(_btnExport);

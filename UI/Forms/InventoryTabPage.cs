@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
-using System.Net.Http;
-using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 #pragma warning disable 0618
@@ -25,7 +23,6 @@ namespace StyleWatcherWin
 
         #endregion
 
-        private static readonly HttpClient _http = new();
 
         private readonly AppConfig _cfg;
         private IInventoryService? _inventoryService;
@@ -55,7 +52,6 @@ namespace StyleWatcherWin
         public InventoryTabPage(AppConfig cfg)
         {
             _cfg = cfg;
-            _http.Timeout = TimeSpan.FromSeconds(Math.Max(1, _cfg.timeout_seconds));
             Text = "库存";
 
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(12) };
@@ -174,29 +170,22 @@ namespace StyleWatcherWin
 
         #endregion
 
-        private async Task ReloadAsync(string styleName)
-        {
-            _activeCell = null; // 清筛选
 
-            InvSnapshot snap;
-            if (_inventoryService != null)
-            {
-                snap = await _inventoryService.GetSnapshotAsync(styleName);
-            }
-            else
-            {
-                snap = await FetchInventoryAsync(styleName);
-            }
+private async Task ReloadAsync(string styleName)
+{
+    _activeCell = null; // 清筛选
 
-            _all = snap;
-            RenderAll(_all);
+    var snap = await _inventoryService!.GetSnapshotAsync(styleName);
 
-            if (_all.Rows.Count == 0)
-            {
-                _lblAvail.Text = "可用合计：0（未获取到库存数据）";
-                _lblOnHand.Text = "现有合计：0（未获取到库存数据）";
-            }
-        }
+    _all = snap;
+    RenderAll(_all);
+
+    if (_all.Rows.Count == 0)
+    {
+        _lblAvail.Text = "可用合计：0（未获取到库存数据）";
+        _lblOnHand.Text = "现有合计：0（未获取到库存数据）";
+    }
+}
 
         private void RenderAll(InvSnapshot snap)
         {
@@ -212,51 +201,6 @@ namespace StyleWatcherWin
             BindGrid(_grid, snap.Rows);
         }
 
-        #region 数据获取/解析
-        private async Task<InvSnapshot> FetchInventoryAsync(string styleName)
-        {
-            var s = new InvSnapshot();
-            if (string.IsNullOrWhiteSpace(styleName)) return s;
-
-            try
-            {
-                var baseUrl = (_cfg?.inventory?.url_base ?? "");
-                var url = baseUrl.Contains("style_name=")
-                    ? baseUrl + Uri.EscapeDataString(styleName)
-                    : baseUrl.TrimEnd('/') + "?style_name=" + Uri.EscapeDataString(styleName);
-
-                using var req = new HttpRequestMessage(HttpMethod.Get, url);
-                var resp = await _http.SendAsync(req);
-                var raw = await resp.Content.ReadAsStringAsync();
-
-                // 兼容：JSON 数组字符串 或 纯文本行
-                List<string>? lines = null;
-                try { lines = JsonSerializer.Deserialize<List<string>>(raw); } catch { }
-                if (lines == null) lines = raw.Replace("\r\n", "\n").Split('\n').ToList();
-
-                foreach (var line in lines)
-                {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-                    var seg = line.Replace('，', ',').Split(',');
-                    if (seg.Length < 6) continue;
-                    s.Rows.Add(new InvRow
-                    {
-                        Name = seg[0].Trim(),
-                        Color = seg[1].Trim(),
-                        Size = seg[2].Trim(),
-                        Warehouse = seg[3].Trim(),
-                        Available = int.TryParse(seg[4].Trim(), out var a) ? a : 0,
-                        OnHand = int.TryParse(seg[5].Trim(), out var h) ? h : 0
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError(ex, "UI/Forms/InventoryTabPage.cs");
-                // ignore
-            }
-            return s;
-        }
         #endregion
 
         #region 绘图与缩放（柱状图降序 + 默认 Top10）
