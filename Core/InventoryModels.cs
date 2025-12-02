@@ -14,7 +14,7 @@ namespace StyleWatcherWin
             public int OnHand { get; set; }
         }
 
-        internal sealed class InvSnapshot
+        public sealed class InvSnapshot
         {
             public List<InvRow> Rows { get; } = new();
 

@@ -140,8 +140,6 @@ namespace StyleWatcherWin
 
             _analysisService = new StyleAnalysisService(_cfg);
 
-            _analysisService = new StyleAnalysisService(_cfg);
-
             ShowInTaskbar = false;
 
             WindowState = FormWindowState.Minimized;
@@ -283,31 +281,35 @@ namespace StyleWatcherWin
 
 
 
-        void EnsureWindow()
+void EnsureWindow()
+
+{
+
+    if (_window == null || _window.IsDisposed)
+
+    {
+
+        _window = new ResultForm(_cfg);
+
+        _window.FormClosing += (s, e) =>
 
         {
 
-            if (_window == null || _window.IsDisposed)
+            if (!_allowCloseAll)
 
             {
 
-                _window = new ResultForm(_cfg);
+                e.Cancel = true;
 
-                _window.FormClosing += (s, e) =>
+                _window?.Hide();
 
-                {
+            }
 
-                    if (!_allowCloseAll)
+        };
 
-                    {
+    }
 
-                        e.Cancel = true;
-
-                        _window?.Hide();
-
-                    }
-
-                };
+}
 
             }
 
@@ -534,7 +536,7 @@ namespace StyleWatcherWin
 
                 var w = _window;
 
-                if (w != null) w.SetLoading($"错误：{ex.Message}");
+                if (w != null) w.SetLoading(ex.Message);
 
             }
 
