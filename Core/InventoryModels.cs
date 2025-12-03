@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace StyleWatcherWin
 {
-        internal sealed class InvRow
+        public sealed class InvRow
         {
             public string Name { get; set; } = "";
             public string Color { get; set; } = "";
