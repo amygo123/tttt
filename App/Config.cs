@@ -14,6 +14,8 @@ namespace StyleWatcherWin
         public string method { get; set; } = "POST";
         public string json_key { get; set; } = "code";
         public int timeout_seconds { get; set; } = 6;
+        // 唯品库存专用超时（秒），未配置则回退到 timeout_seconds
+        public int vip_timeout_seconds { get; set; } = 20;
         public string hotkey { get; set; } = "Alt+S";
 
         public WindowCfg window { get; set; } = new WindowCfg();

@@ -215,7 +215,7 @@ namespace StyleWatcherWin
             _cfg = cfg;
             _analysisService = new StyleAnalysisService(_cfg);
             _inventoryService = new InventoryService(_cfg);
-            _vipHttp.Timeout = TimeSpan.FromSeconds(Math.Max(1, _cfg.timeout_seconds));
+            _vipHttp.Timeout = TimeSpan.FromSeconds(Math.Max(1, _cfg.vip_timeout_seconds > 0 ? _cfg.vip_timeout_seconds : _cfg.timeout_seconds));
 
             Text = "StyleWatcher";
             Font = new Font("Microsoft YaHei UI", _cfg.window.fontSize);
