@@ -210,15 +210,6 @@ namespace StyleWatcherWin
         private Dictionary<string,int> _invWarehouse = new Dictionary<string,int>();
 
 
-        /// <summary>
-        /// 供外部（TrayApp）注入统一的分析服务，用于复用接口调用与文本清洗逻辑。
-        /// 非必需；未设置时退回到旧的本地调用方式。
-        /// </summary>
-        public void SetAnalysisService(IStyleAnalysisService service)
-        {
-            _analysisService = service ?? throw new ArgumentNullException(nameof(service));
-        }
-
         public ResultForm(AppConfig cfg)
         {
             _cfg = cfg;
