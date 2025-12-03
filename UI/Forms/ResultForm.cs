@@ -1738,6 +1738,10 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
         /// <summary>
         /// 根据当前 DetailFilter（渠道/店铺/颜色/尺码/搜索文本）刷新明细表。
         /// </summary>
+        /// <summary>
+        /// 根据当前 DetailFilter（渠道/店铺/颜色/尺码/搜索文本）刷新明细表，
+        /// 并同步更新右侧 dashboard（近 N 日趋势 / 渠道占比 / 店铺 TopN / 款色尺码热力图）。
+        /// </summary>
         private void ApplyDetailFilter()
         {
             var text = (_detailFilter.Text ?? string.Empty).Trim();
@@ -1761,21 +1765,31 @@ private void RenderSalesSummary(List<Aggregations.SalesItem> sales)
                 rows = rows.Where(r => r.尺码 == _detailFilter.Size);
             }
 
-            if (string.IsNullOrWhiteSpace(text))
+            List<SaleRow> baseRows;
+
+            if (string.IsNullOrEmpty(text))
             {
-                _binding.DataSource = new BindingList<SaleRow>(rows.ToList());
-                _grid.ClearSelection();
-                return;
+                baseRows = rows.ToList();
+            }
+            else
+            {
+                string ToText(SaleRow x) => x?.SearchText ?? string.Empty;
+
+                baseRows = UiSearch
+                    .FilterAllTokens(rows, ToText, text)
+                    .ToList();
             }
 
-            string ToText(SaleRow x) => x?.SearchText ?? string.Empty;
-
-            var filtered = UiSearch
-                .FilterAllTokens(rows, ToText, text)
-                .ToList();
-
-            _binding.DataSource = new BindingList<SaleRow>(filtered);
+            _binding.DataSource = new BindingList<SaleRow>(baseRows);
             _grid.ClearSelection();
+
+            // 同步刷新销售明细 dashboard：近 N 日趋势 / 渠道占比 / 店铺 TopN / 款色尺码热力图。
+            // 注意：RenderDetailDashboard/RenderSkuHeatmap 会自行基于 _sales + DetailFilter 过滤。
+            if (_sales != null && _sales.Count > 0)
+            {
+                RenderDetailDashboard();
+                RenderSkuHeatmap();
+            }
         }
 
         /// <summary>
