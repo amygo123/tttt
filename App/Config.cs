@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace StyleWatcherWin
 {
@@ -106,7 +107,7 @@ namespace StyleWatcherWin
     }
 
     public static class ApiHelper
-    {
+        public static async Task<string> QueryAsync(AppConfig cfg, string text, CancellationToken cancellationToken = default)
         public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text, CancellationToken cancellationToken = default)
         {
             if (cfg == null) return "请求失败：配置为空";
@@ -214,7 +215,7 @@ namespace StyleWatcherWin
             return $"调用接口出现异常：{ex.Message}";
         }
 
-        public static async System.Threading.Tasks.Task<string> QueryInventoryAsync(AppConfig cfg, string styleName, CancellationToken cancellationToken = default)
+        public static async Task<string> QueryInventoryAsync(AppConfig cfg, string styleName, CancellationToken cancellationToken = default)
         {
             if (cfg == null || cfg.inventory == null)
                 return "[] // 请求失败：未配置库存接口";

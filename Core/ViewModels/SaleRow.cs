@@ -1,7 +1,10 @@
+using System;
+
 namespace StyleWatcherWin
 {
     /// <summary>
-    /// 行缓存：销售明细行 + 预计算的搜索文本，避免每次过滤时通过反射拼接字符串。
+    /// 销售明细主表的一行数据，作为 DataGridView 绑定的数据模型。
+    /// 同时包含预计算的 SearchText 用于本地搜索。
     /// </summary>
     internal sealed class SaleRow
     {
