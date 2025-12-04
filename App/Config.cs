@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 
 namespace StyleWatcherWin
 {
@@ -106,7 +107,7 @@ namespace StyleWatcherWin
 
     public static class ApiHelper
     {
-        public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text)
+        public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text, CancellationToken cancellationToken = default)
         {
             if (cfg == null) return "请求失败：配置为空";
             if (string.IsNullOrWhiteSpace(cfg.api_url)) return "请求失败：未配置 api_url";
@@ -152,7 +153,7 @@ namespace StyleWatcherWin
 
             try
             {
-                var resp = await http.SendAsync(request);
+                var resp = await http.SendAsync(request, cancellationToken);
                 resp.EnsureSuccessStatusCode();
                 var raw = await resp.Content.ReadAsStringAsync();
 
@@ -213,7 +214,7 @@ namespace StyleWatcherWin
             return $"调用接口出现异常：{ex.Message}";
         }
 
-        public static async System.Threading.Tasks.Task<string> QueryInventoryAsync(AppConfig cfg, string styleName)
+        public static async System.Threading.Tasks.Task<string> QueryInventoryAsync(AppConfig cfg, string styleName, CancellationToken cancellationToken = default)
         {
             if (cfg == null || cfg.inventory == null)
                 return "[] // 请求失败：未配置库存接口";
@@ -240,7 +241,7 @@ namespace StyleWatcherWin
 
             try
             {
-                var resp = await http.GetAsync(url);
+                var resp = await http.GetAsync(url, cancellationToken);
                 resp.EnsureSuccessStatusCode();
                 return await resp.Content.ReadAsStringAsync();
             }

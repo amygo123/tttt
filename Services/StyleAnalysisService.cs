@@ -44,7 +44,7 @@ namespace StyleWatcherWin
             }
             else
             {
-                raw = await ApiHelper.QueryAsync(_config, selection).ConfigureAwait(false);
+                raw = await ApiHelper.QueryAsync(_config, selection, cancellationToken).ConfigureAwait(false);
             }
 
             cancellationToken.ThrowIfCancellationRequested();

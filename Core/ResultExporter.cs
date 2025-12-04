@@ -16,12 +16,12 @@ namespace StyleWatcherWin
     {
         public static void FillWorkbook(
             XLWorkbook wb,
-            IReadOnlyList<SaleRow> salesDetails,
+            IReadOnlyList<object> salesDetails,
             IReadOnlyList<InvRow> inventoryRows,
             IReadOnlyList<Dictionary<string, object?>> vipRows)
         {
             if (wb == null) throw new ArgumentNullException(nameof(wb));
-            salesDetails ??= Array.Empty<SaleRow>();
+            salesDetails ??= Array.Empty<object>();
             inventoryRows ??= Array.Empty<InvRow>();
             vipRows ??= Array.Empty<Dictionary<string, object?>>();
 
@@ -34,14 +34,15 @@ namespace StyleWatcherWin
             ws1.Cell(1, 5).Value = "数量";
 
             int r = 2;
-            foreach (var row in salesDetails)
+            foreach (var it in salesDetails)
             {
-                if (row == null) continue;
-                ws1.Cell(r, 1).Value = row.日期;
-                ws1.Cell(r, 2).Value = row.款式;
-                ws1.Cell(r, 3).Value = row.颜色;
-                ws1.Cell(r, 4).Value = row.尺码;
-                ws1.Cell(r, 5).Value = row.数量;
+                if (it == null) continue;
+                var t = it.GetType();
+                ws1.Cell(r, 1).Value = t.GetProperty("日期")?.GetValue(it)?.ToString();
+                ws1.Cell(r, 2).Value = t.GetProperty("款式")?.GetValue(it)?.ToString();
+                ws1.Cell(r, 3).Value = t.GetProperty("颜色")?.GetValue(it)?.ToString();
+                ws1.Cell(r, 4).Value = t.GetProperty("尺码")?.GetValue(it)?.ToString();
+                ws1.Cell(r, 5).Value = t.GetProperty("数量")?.GetValue(it)?.ToString();
                 r++;
             }
             ws1.Columns().AdjustToContents();

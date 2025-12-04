@@ -34,7 +34,7 @@ namespace StyleWatcherWin
                 return snap;
 
             // 调用统一的库存接口封装
-            var raw = await ApiHelper.QueryInventoryAsync(_config, styleName).ConfigureAwait(false);
+            var raw = await ApiHelper.QueryInventoryAsync(_config, styleName, cancellationToken).ConfigureAwait(false);
 
             cancellationToken.ThrowIfCancellationRequested();
 
