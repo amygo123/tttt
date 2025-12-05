@@ -106,8 +106,8 @@ namespace StyleWatcherWin
         }
     }
 
-        public static class ApiHelper
-    {
+    public static class ApiHelper
+        public static async Task<string> QueryAsync(AppConfig cfg, string text, CancellationToken cancellationToken = default)
         public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text, CancellationToken cancellationToken = default)
         {
             if (cfg == null) return "请求失败：配置为空";
@@ -121,28 +121,13 @@ namespace StyleWatcherWin
             };
 
             var url = cfg.api_url;
-            HttpRequestMessage request;
-
-            if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
-            {
-                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
-                var connector = url.Contains("?") ? "&" : "?";
-                var q = Uri.EscapeDataString(key) + "=" + Uri.EscapeDataString(text ?? string.Empty);
-                request = new HttpRequestMessage(HttpMethod.Get, url + connector + q);
-            }
-            else
-            {
-                request = new HttpRequestMessage(new HttpMethod(method), url);
-                request.Content = new StringContent(text ?? string.Empty, Encoding.UTF8, "text/plain");
-            }
+            var request = new HttpRequestMessage(new HttpMethod(method), url);
 
             if (cfg.headers?.ExtraHeaders != null)
             {
                 foreach (var kv in cfg.headers.ExtraHeaders)
                 {
-                    // JsonElement 是值类型，不能用 null 条件运算符，这里通过 ToString() 获取原始文本
-                    var rawValue = kv.Value.ToString();
-                    var value = string.IsNullOrWhiteSpace(rawValue) ? null : rawValue.Trim('"');
+                    var value = kv.Value.ToString().Trim('"');
                     if (!string.IsNullOrWhiteSpace(value))
                     {
                         request.Headers.TryAddWithoutValidation(kv.Key, value);
@@ -150,12 +135,30 @@ namespace StyleWatcherWin
                 }
             }
 
+            if (method == "GET")
+            {
+                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
+                var connector = url.Contains("?") ? "&" : "?";
+                request.RequestUri = new Uri(url + connector + Uri.EscapeDataString(key) + "=" + Uri.EscapeDataString(text ?? string.Empty));
+            }
+            else
+            {
+                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
+                var body = new Dictionary<string, string>
+                {
+                    [key] = text ?? string.Empty
+                };
+                var json = JsonSerializer.Serialize(body);
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            }
+
             try
             {
-                var resp = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                var resp = await http.SendAsync(request, cancellationToken);
                 resp.EnsureSuccessStatusCode();
-                var raw = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var raw = await resp.Content.ReadAsStringAsync();
 
+                // 新版接口：优先从 JSON 中提取 msg 字段（如果存在）
                 var trimmed = raw?.Trim();
                 if (!string.IsNullOrEmpty(trimmed) && trimmed.StartsWith("{"))
                 {
@@ -166,10 +169,8 @@ namespace StyleWatcherWin
                             msgProp.ValueKind == JsonValueKind.String)
                         {
                             var msg = msgProp.GetString();
-                            if (!string.IsNullOrWhiteSpace(msg))
-                            {
+                            if (!string.IsNullOrEmpty(msg))
                                 return msg;
-                            }
                         }
                     }
                     catch
@@ -188,6 +189,7 @@ namespace StyleWatcherWin
             }
         }
 
+
         private static string BuildFriendlyErrorMessage(Exception ex, string url, int timeoutSeconds)
         {
             if (ex is HttpRequestException)
@@ -201,7 +203,6 @@ namespace StyleWatcherWin
                 {
                     host = url;
                 }
-
                 return $"网络 / 连接错误，请检查网络或服务器地址：{host}";
             }
 
@@ -214,7 +215,7 @@ namespace StyleWatcherWin
             return $"调用接口出现异常：{ex.Message}";
         }
 
-        public static async System.Threading.Tasks.Task<string> QueryInventoryAsync(AppConfig cfg, string styleName, CancellationToken cancellationToken = default)
+        public static async Task<string> QueryInventoryAsync(AppConfig cfg, string styleName, CancellationToken cancellationToken = default)
         {
             if (cfg == null || cfg.inventory == null)
                 return "[] // 请求失败：未配置库存接口";
@@ -241,9 +242,9 @@ namespace StyleWatcherWin
 
             try
             {
-                var resp = await http.GetAsync(url, cancellationToken).ConfigureAwait(false);
+                var resp = await http.GetAsync(url, cancellationToken);
                 resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                return await resp.Content.ReadAsStringAsync();
             }
             catch (Exception ex)
             {
@@ -255,11 +256,11 @@ namespace StyleWatcherWin
         public static async System.Threading.Tasks.Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
         {
             if (cfg == null || cfg.inventory == null)
-                return string.Empty;
+                return "";
 
             var baseUrl = cfg.inventory.price_url_base;
             if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
-                return string.Empty;
+                return "";
 
             var url = baseUrl + Uri.EscapeDataString(styleName);
 
@@ -270,16 +271,15 @@ namespace StyleWatcherWin
 
             try
             {
-                var resp = await http.GetAsync(url).ConfigureAwait(false);
+                var resp = await http.GetAsync(url);
                 resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+                return await resp.Content.ReadAsStringAsync();
             }
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                return string.Empty;
+                return "";
             }
         }
     }
-
 }
