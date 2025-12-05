@@ -121,9 +121,9 @@ namespace StyleWatcherWin
             };
 
             var url = cfg.api_url;
-
             HttpRequestMessage request;
-            if (method == "GET")
+
+            if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
             {
                 var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
                 var connector = url.Contains("?") ? "&" : "?";
@@ -140,7 +140,9 @@ namespace StyleWatcherWin
             {
                 foreach (var kv in cfg.headers.ExtraHeaders)
                 {
-                    var value = kv.Value?.ToString()?.Trim('"');
+                    // JsonElement 是值类型，不能用 null 条件运算符，这里通过 ToString() 获取原始文本
+                    var rawValue = kv.Value.ToString();
+                    var value = string.IsNullOrWhiteSpace(rawValue) ? null : rawValue.Trim('"');
                     if (!string.IsNullOrWhiteSpace(value))
                     {
                         request.Headers.TryAddWithoutValidation(kv.Key, value);
@@ -150,9 +152,9 @@ namespace StyleWatcherWin
 
             try
             {
-                var resp = await http.SendAsync(request, cancellationToken);
+                var resp = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
                 resp.EnsureSuccessStatusCode();
-                var raw = await resp.Content.ReadAsStringAsync();
+                var raw = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
 
                 var trimmed = raw?.Trim();
                 if (!string.IsNullOrEmpty(trimmed) && trimmed.StartsWith("{"))
@@ -239,9 +241,9 @@ namespace StyleWatcherWin
 
             try
             {
-                var resp = await http.GetAsync(url, cancellationToken);
+                var resp = await http.GetAsync(url, cancellationToken).ConfigureAwait(false);
                 resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync();
+                return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -253,11 +255,11 @@ namespace StyleWatcherWin
         public static async System.Threading.Tasks.Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
         {
             if (cfg == null || cfg.inventory == null)
-                return "";
+                return string.Empty;
 
             var baseUrl = cfg.inventory.price_url_base;
             if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
-                return "";
+                return string.Empty;
 
             var url = baseUrl + Uri.EscapeDataString(styleName);
 
@@ -268,14 +270,14 @@ namespace StyleWatcherWin
 
             try
             {
-                var resp = await http.GetAsync(url);
+                var resp = await http.GetAsync(url).ConfigureAwait(false);
                 resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync();
+                return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                return "";
+                return string.Empty;
             }
         }
     }
