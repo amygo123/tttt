@@ -106,9 +106,10 @@ namespace StyleWatcherWin
         }
     }
 
+    
     public static class ApiHelper
+    {
         public static async Task<string> QueryAsync(AppConfig cfg, string text, CancellationToken cancellationToken = default)
-        public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text, CancellationToken cancellationToken = default)
         {
             if (cfg == null) return "请求失败：配置为空";
             if (string.IsNullOrWhiteSpace(cfg.api_url)) return "请求失败：未配置 api_url";
@@ -121,44 +122,44 @@ namespace StyleWatcherWin
             };
 
             var url = cfg.api_url;
-            var request = new HttpRequestMessage(new HttpMethod(method), url);
+            HttpRequestMessage request;
 
-            if (cfg.headers?.ExtraHeaders != null)
+            if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
+            {
+                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
+                var connector = url.Contains("?") ? "&" : "?";
+                var q = Uri.EscapeDataString(key) + "=" + Uri.EscapeDataString(text ?? string.Empty);
+                request = new HttpRequestMessage(HttpMethod.Get, url + connector + q);
+            }
+            else
+            {
+                request = new HttpRequestMessage(new HttpMethod(method), url);
+                request.Content = new StringContent(text ?? string.Empty, Encoding.UTF8, "text/plain");
+            }
+
+            if (cfg.headers != null && cfg.headers.ExtraHeaders != null)
             {
                 foreach (var kv in cfg.headers.ExtraHeaders)
                 {
-                    var value = kv.Value.ToString().Trim('"');
-                    if (!string.IsNullOrWhiteSpace(value))
+                    // JsonElement 是值类型，不能使用 null 条件运算符
+                    var rawValue = kv.Value.ToString();
+                    if (!string.IsNullOrWhiteSpace(rawValue))
                     {
-                        request.Headers.TryAddWithoutValidation(kv.Key, value);
+                        var value = rawValue.Trim('"');
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            request.Headers.TryAddWithoutValidation(kv.Key, value);
+                        }
                     }
                 }
             }
 
-            if (method == "GET")
-            {
-                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
-                var connector = url.Contains("?") ? "&" : "?";
-                request.RequestUri = new Uri(url + connector + Uri.EscapeDataString(key) + "=" + Uri.EscapeDataString(text ?? string.Empty));
-            }
-            else
-            {
-                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
-                var body = new Dictionary<string, string>
-                {
-                    [key] = text ?? string.Empty
-                };
-                var json = JsonSerializer.Serialize(body);
-                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-            }
-
             try
             {
-                var resp = await http.SendAsync(request, cancellationToken);
+                var resp = await http.SendAsync(request, cancellationToken).ConfigureAwait(false);
                 resp.EnsureSuccessStatusCode();
-                var raw = await resp.Content.ReadAsStringAsync();
+                var raw = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-                // 新版接口：优先从 JSON 中提取 msg 字段（如果存在）
                 var trimmed = raw?.Trim();
                 if (!string.IsNullOrEmpty(trimmed) && trimmed.StartsWith("{"))
                 {
@@ -169,13 +170,15 @@ namespace StyleWatcherWin
                             msgProp.ValueKind == JsonValueKind.String)
                         {
                             var msg = msgProp.GetString();
-                            if (!string.IsNullOrEmpty(msg))
+                            if (!string.IsNullOrWhiteSpace(msg))
+                            {
                                 return msg;
+                            }
                         }
                     }
                     catch
                     {
-                        // 容错：如果解析失败，退回到原始文本
+                        // 容错：如果解析失败，退回原始文本
                     }
                 }
 
@@ -188,7 +191,6 @@ namespace StyleWatcherWin
                 return "请求失败：" + friendly;
             }
         }
-
 
         private static string BuildFriendlyErrorMessage(Exception ex, string url, int timeoutSeconds)
         {
@@ -203,10 +205,11 @@ namespace StyleWatcherWin
                 {
                     host = url;
                 }
+
                 return $"网络 / 连接错误，请检查网络或服务器地址：{host}";
             }
 
-            if (ex is System.Threading.Tasks.TaskCanceledException || ex is OperationCanceledException)
+            if (ex is TaskCanceledException || ex is OperationCanceledException)
             {
                 if (timeoutSeconds <= 0) timeoutSeconds = 1;
                 return $"请求超时（当前超时 {timeoutSeconds} 秒，可在配置中调整）";
@@ -242,9 +245,9 @@ namespace StyleWatcherWin
 
             try
             {
-                var resp = await http.GetAsync(url, cancellationToken);
+                var resp = await http.GetAsync(url, cancellationToken).ConfigureAwait(false);
                 resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync();
+                return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -253,14 +256,14 @@ namespace StyleWatcherWin
             }
         }
 
-        public static async System.Threading.Tasks.Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
+        public static async Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
         {
             if (cfg == null || cfg.inventory == null)
-                return "";
+                return string.Empty;
 
             var baseUrl = cfg.inventory.price_url_base;
             if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
-                return "";
+                return string.Empty;
 
             var url = baseUrl + Uri.EscapeDataString(styleName);
 
@@ -271,15 +274,16 @@ namespace StyleWatcherWin
 
             try
             {
-                var resp = await http.GetAsync(url);
+                var resp = await http.GetAsync(url).ConfigureAwait(false);
                 resp.EnsureSuccessStatusCode();
-                return await resp.Content.ReadAsStringAsync();
+                return await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 AppLogger.LogError(ex, "App/Config.cs");
-                return "";
+                return string.Empty;
             }
         }
     }
+
 }
