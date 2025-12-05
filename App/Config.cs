@@ -106,183 +106,178 @@ namespace StyleWatcherWin
         }
     }
 
-    public static class ApiHelper
-{
-    public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text, CancellationToken cancellationToken = default)
+        public static class ApiHelper
     {
-        if (cfg == null) return "请求失败：配置为空";
-        if (string.IsNullOrWhiteSpace(cfg.api_url)) return "请求失败：未配置 api_url";
-
-        var method = string.IsNullOrWhiteSpace(cfg.method) ? "POST" : cfg.method.ToUpperInvariant();
-
-        using var http = new HttpClient
+        public static async System.Threading.Tasks.Task<string> QueryAsync(AppConfig cfg, string text, CancellationToken cancellationToken = default)
         {
-            Timeout = TimeSpan.FromSeconds(Math.Max(1, cfg.timeout_seconds))
-        };
+            if (cfg == null) return "请求失败：配置为空";
+            if (string.IsNullOrWhiteSpace(cfg.api_url)) return "请求失败：未配置 api_url";
 
-        var url = cfg.api_url;
-        var request = new HttpRequestMessage(new HttpMethod(method), url);
+            var method = string.IsNullOrWhiteSpace(cfg.method) ? "POST" : cfg.method.ToUpperInvariant();
 
-        if (cfg.headers?.ExtraHeaders != null)
-        {
-            foreach (var kv in cfg.headers.ExtraHeaders)
+            using var http = new HttpClient
             {
-                var value = kv.Value.ToString().Trim('"');
-                if (!string.IsNullOrWhiteSpace(value))
+                Timeout = TimeSpan.FromSeconds(Math.Max(1, cfg.timeout_seconds))
+            };
+
+            var url = cfg.api_url;
+
+            HttpRequestMessage request;
+            if (method == "GET")
+            {
+                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
+                var connector = url.Contains("?") ? "&" : "?";
+                var q = Uri.EscapeDataString(key) + "=" + Uri.EscapeDataString(text ?? string.Empty);
+                request = new HttpRequestMessage(HttpMethod.Get, url + connector + q);
+            }
+            else
+            {
+                request = new HttpRequestMessage(new HttpMethod(method), url);
+                request.Content = new StringContent(text ?? string.Empty, Encoding.UTF8, "text/plain");
+            }
+
+            if (cfg.headers?.ExtraHeaders != null)
+            {
+                foreach (var kv in cfg.headers.ExtraHeaders)
                 {
-                    request.Headers.TryAddWithoutValidation(kv.Key, value);
+                    var value = kv.Value?.ToString()?.Trim('"');
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        request.Headers.TryAddWithoutValidation(kv.Key, value);
+                    }
                 }
+            }
+
+            try
+            {
+                var resp = await http.SendAsync(request, cancellationToken);
+                resp.EnsureSuccessStatusCode();
+                var raw = await resp.Content.ReadAsStringAsync();
+
+                var trimmed = raw?.Trim();
+                if (!string.IsNullOrEmpty(trimmed) && trimmed.StartsWith("{"))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(trimmed);
+                        if (doc.RootElement.TryGetProperty("msg", out var msgProp) &&
+                            msgProp.ValueKind == JsonValueKind.String)
+                        {
+                            var msg = msgProp.GetString();
+                            if (!string.IsNullOrWhiteSpace(msg))
+                            {
+                                return msg;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // 容错：如果解析失败，退回到原始文本
+                    }
+                }
+
+                return raw ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError(ex, "App/Config.cs");
+                var friendly = BuildFriendlyErrorMessage(ex, url, cfg.timeout_seconds);
+                return "请求失败：" + friendly;
             }
         }
 
-        if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
+        private static string BuildFriendlyErrorMessage(Exception ex, string url, int timeoutSeconds)
         {
-            // GET 请求不需要内容
-        }
-        else
-        {
-            request.Content = new StringContent(text ?? string.Empty, Encoding.UTF8, "text/plain");
-        }
-
-        try
-        {
-            var resp = await http.SendAsync(request, cancellationToken);
-            resp.EnsureSuccessStatusCode();
-            var raw = await resp.Content.ReadAsStringAsync();
-
-            // 新版接口：优先从 JSON 中提取 msg 字段（如果存在）
-            var trimmed = raw?.Trim();
-            if (!string.IsNullOrEmpty(trimmed) && trimmed.StartsWith("{"))
+            if (ex is HttpRequestException)
             {
+                string host;
                 try
                 {
-                    using var doc = JsonDocument.Parse(trimmed);
-                    if (doc.RootElement.TryGetProperty("msg", out var msgProp) &&
-                        msgProp.ValueKind == JsonValueKind.String)
-                    {
-                        var msg = msgProp.GetString();
-                        if (!string.IsNullOrWhiteSpace(msg))
-                        {
-                            return msg;
-                        }
-                    }
+                    host = new Uri(url).Host;
                 }
                 catch
                 {
-                    // 容错：如果解析失败，退回到原始文本
+                    host = url;
                 }
+
+                return $"网络 / 连接错误，请检查网络或服务器地址：{host}";
             }
 
-            return raw ?? string.Empty;
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogError(ex, "App/Config.cs");
-            var friendly = BuildFriendlyErrorMessage(ex, url, cfg.timeout_seconds);
-            return "请求失败：" + friendly;
-        }
-    }
+            if (ex is System.Threading.Tasks.TaskCanceledException || ex is OperationCanceledException)
+            {
+                if (timeoutSeconds <= 0) timeoutSeconds = 1;
+                return $"请求超时（当前超时 {timeoutSeconds} 秒，可在配置中调整）";
+            }
 
-    private static string BuildFriendlyErrorMessage(Exception ex, string url, int timeoutSeconds)
-    {
-        if (ex is HttpRequestException)
+            return $"调用接口出现异常：{ex.Message}";
+        }
+
+        public static async System.Threading.Tasks.Task<string> QueryInventoryAsync(AppConfig cfg, string styleName, CancellationToken cancellationToken = default)
         {
-            string host;
+            if (cfg == null || cfg.inventory == null)
+                return "[] // 请求失败：未配置库存接口";
+
+            var baseUrl = cfg.inventory.url_base;
+            if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
+                return "[] // 请求失败：库存接口地址或款号为空";
+
+            string url;
+            if (baseUrl.Contains("style_name="))
+            {
+                url = baseUrl + Uri.EscapeDataString(styleName);
+            }
+            else
+            {
+                var connector = baseUrl.Contains("?") ? "&" : "?";
+                url = baseUrl + connector + "style_name=" + Uri.EscapeDataString(styleName);
+            }
+
+            using var http = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(Math.Max(1, cfg.timeout_seconds))
+            };
+
             try
             {
-                host = new Uri(url).Host;
+                var resp = await http.GetAsync(url, cancellationToken);
+                resp.EnsureSuccessStatusCode();
+                return await resp.Content.ReadAsStringAsync();
             }
-            catch
+            catch (Exception ex)
             {
-                host = url;
+                AppLogger.LogError(ex, "App/Config.cs");
+                return "[] // 请求失败：" + ex.Message;
             }
-
-            return $"无法请求接口 {host}：{ex.Message}";
         }
 
-        if (ex is TaskCanceledException)
+        public static async System.Threading.Tasks.Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
         {
-            return $"请求超时（超过 {timeoutSeconds} 秒），请稍后重试。";
-        }
+            if (cfg == null || cfg.inventory == null)
+                return "";
 
-        return ex.Message;
-    }
+            var baseUrl = cfg.inventory.price_url_base;
+            if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
+                return "";
 
-    public static async System.Threading.Tasks.Task<string> QueryInventoryAsync(AppConfig cfg, string styleName, CancellationToken cancellationToken = default)
-    {
-        if (cfg == null || cfg.inventory == null)
-            return "[] // 请求失败：未配置库存接口";
+            var url = baseUrl + Uri.EscapeDataString(styleName);
 
-        var baseUrl = cfg.inventory.url_base;
-        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(styleName))
-            return "[] // 请求失败：库存接口地址或款号为空";
+            using var http = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(Math.Max(1, cfg.timeout_seconds))
+            };
 
-        string url;
-        if (baseUrl.Contains("style_name="))
-        {
-            url = baseUrl + Uri.EscapeDataString(styleName);
-        }
-        else
-        {
-            var connector = baseUrl.Contains("?") ? "&" : "?";
-            url = baseUrl + connector + "style_name=" + Uri.EscapeDataString(styleName);
-        }
-
-        using var http = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(Math.Max(1, cfg.timeout_seconds))
-        };
-
-        try
-        {
-            var resp = await http.GetAsync(url, cancellationToken);
-            resp.EnsureSuccessStatusCode();
-            return await resp.Content.ReadAsStringAsync();
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogError(ex, "App/Config.cs");
-            return "[] // 请求失败：" + ex.Message;
+            try
+            {
+                var resp = await http.GetAsync(url);
+                resp.EnsureSuccessStatusCode();
+                return await resp.Content.ReadAsStringAsync();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError(ex, "App/Config.cs");
+                return "";
+            }
         }
     }
-
-    public static async System.Threading.Tasks.Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
-    {
-        if (cfg == null || cfg.inventory == null || cfg.inventory.style_info == null)
-            return "";
-
-        var styleInfo = cfg.inventory.style_info;
-        if (string.IsNullOrWhiteSpace(styleInfo.url_base) || string.IsNullOrWhiteSpace(styleName))
-            return "";
-
-        string url;
-        if (styleInfo.url_base.Contains("style_name="))
-        {
-            url = styleInfo.url_base + Uri.EscapeDataString(styleName);
-        }
-        else
-        {
-            var connector = styleInfo.url_base.Contains("?") ? "&" : "?";
-            url = styleInfo.url_base + connector + "style_name=" + Uri.EscapeDataString(styleName);
-        }
-
-        using var http = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(Math.Max(1, cfg.timeout_seconds))
-        };
-
-        try
-        {
-            var resp = await http.GetAsync(url);
-            resp.EnsureSuccessStatusCode();
-            return await resp.Content.ReadAsStringAsync();
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogError(ex, "App/Config.cs");
-            return "";
-        }
-    }
-}
 
 }
