@@ -122,26 +122,13 @@ namespace StyleWatcherWin
             };
 
             var url = cfg.api_url;
-            HttpRequestMessage request;
+            var request = new HttpRequestMessage(new HttpMethod(method), url);
 
-            if (string.Equals(method, "GET", StringComparison.OrdinalIgnoreCase))
-            {
-                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
-                var connector = url.Contains("?") ? "&" : "?";
-                var q = Uri.EscapeDataString(key) + "=" + Uri.EscapeDataString(text ?? string.Empty);
-                request = new HttpRequestMessage(HttpMethod.Get, url + connector + q);
-            }
-            else
-            {
-                request = new HttpRequestMessage(new HttpMethod(method), url);
-                request.Content = new StringContent(text ?? string.Empty, Encoding.UTF8, "text/plain");
-            }
-
+            // 附加额外头信息（保持 v11 对 JsonElement 的处理方式）
             if (cfg.headers != null && cfg.headers.ExtraHeaders != null)
             {
                 foreach (var kv in cfg.headers.ExtraHeaders)
                 {
-                    // JsonElement 是值类型，不能使用 null 条件运算符
                     var rawValue = kv.Value.ToString();
                     if (!string.IsNullOrWhiteSpace(rawValue))
                     {
@@ -152,6 +139,23 @@ namespace StyleWatcherWin
                         }
                     }
                 }
+            }
+
+            if (method == "GET")
+            {
+                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
+                var connector = url.Contains("?") ? "&" : "?";
+                request.RequestUri = new Uri(url + connector + Uri.EscapeDataString(key) + "=" + Uri.EscapeDataString(text ?? string.Empty));
+            }
+            else
+            {
+                var key = string.IsNullOrWhiteSpace(cfg.json_key) ? "code" : cfg.json_key;
+                var body = new Dictionary<string, string>
+                {
+                    [key] = text ?? string.Empty
+                };
+                var json = JsonSerializer.Serialize(body);
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
             }
 
             try
@@ -171,14 +175,12 @@ namespace StyleWatcherWin
                         {
                             var msg = msgProp.GetString();
                             if (!string.IsNullOrWhiteSpace(msg))
-                            {
                                 return msg;
-                            }
                         }
                     }
                     catch
                     {
-                        // 容错：如果解析失败，退回原始文本
+                        // 容错：如果解析失败，退回到原始文本
                     }
                 }
 
@@ -209,7 +211,7 @@ namespace StyleWatcherWin
                 return $"网络 / 连接错误，请检查网络或服务器地址：{host}";
             }
 
-            if (ex is TaskCanceledException || ex is OperationCanceledException)
+            if (ex is System.Threading.Tasks.TaskCanceledException || ex is OperationCanceledException)
             {
                 if (timeoutSeconds <= 0) timeoutSeconds = 1;
                 return $"请求超时（当前超时 {timeoutSeconds} 秒，可在配置中调整）";
@@ -218,7 +220,7 @@ namespace StyleWatcherWin
             return $"调用接口出现异常：{ex.Message}";
         }
 
-        public static async Task<string> QueryInventoryAsync(AppConfig cfg, string styleName, CancellationToken cancellationToken = default)
+        public static async System.Threading.Tasks.Task<string> QueryInventoryAsync(AppConfig cfg, string styleName, CancellationToken cancellationToken = default)
         {
             if (cfg == null || cfg.inventory == null)
                 return "[] // 请求失败：未配置库存接口";
@@ -256,7 +258,7 @@ namespace StyleWatcherWin
             }
         }
 
-        public static async Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
+        public static async System.Threading.Tasks.Task<string> QueryStyleInfoAsync(AppConfig cfg, string styleName)
         {
             if (cfg == null || cfg.inventory == null)
                 return string.Empty;
@@ -285,5 +287,3 @@ namespace StyleWatcherWin
             }
         }
     }
-
-}
